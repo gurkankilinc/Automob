@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Automob — Servis Paneli</title>
+</head>
+<body>
+  <!-- ============ GİRİŞ EKRANI ============ -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-brand" style="justify-content: space-between;">
+        <span style="display: flex; align-items: center; gap: 9px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 15 L6 9 Q6.6 7.4 8.4 7.4 L15.6 7.4 Q17.4 7.4 18 9 L20 15"
+                  fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M3 15 L21 15 L21 17.4 L3 17.4 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="7.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="16.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          </svg>
+          <span>AUTOMOB</span>
+        </span>
+        <button class="theme-toggle" id="theme-toggle-login" type="button" title="Tema değiştir" aria-label="Açık/koyu tema değiştir">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2"/>
+            <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+          </svg>
+        </button>
+      </div>
+      <h1 class="login-title">Giriş yap</h1>
+      <p class="login-sub">Servis paneline veya araç görünümüne erişmek için hesabınla giriş yap.</p>
+      <form id="login-form" novalidate>
+        <label class="field-label" for="login-email">E-posta</label>
+        <input id="login-email" class="login-input" type="email" autocomplete="username" required />
+        <label class="field-label" for="login-password">Şifre</label>
+        <input id="login-password" class="login-input" type="password" autocomplete="current-password" required />
+        <div class="login-error" id="login-error" hidden></div>
+        <button class="cta block" type="submit" id="login-submit">GİRİŞ YAP</button>
+      </form>
+      <div class="login-demo">
+        <span class="login-demo-label">Demo hesaplar</span>
+        <div class="login-demo-row">
+          <button type="button" class="chip-btn" data-demo="isletme">İşletme olarak gir</button>
+          <button type="button" class="chip-btn" data-demo="musteri">Müşteri olarak gir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app hidden" id="app-root">
+    <header class="bar top">
+      <div class="brand">
+        <svg class="brand-mark" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 15 L6 9 Q6.6 7.4 8.4 7.4 L15.6 7.4 Q17.4 7.4 18 9 L20 15"
+                fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M3 15 L21 15 L21 17.4 L3 17.4 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="7.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="16.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        <span class="brand-name">AUTOMOB</span>
+      </div>
+      <nav class="tabs" aria-label="Görünümler">
+        <button class="tab active" data-tab="servis">Servis Paneli</button>
+        <button class="tab" data-tab="musteri">Müşteri Görünümü</button>
+        <button class="tab" data-tab="kaporta">Kaporta Durumu</button>
+      </nav>
+      <div class="car-id">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Tema değiştir" aria-label="Açık/koyu tema değiştir">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2"/>
+            <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+          </svg>
+        </button>
+        <span class="api-badge" id="api-badge" title="Backend bağlantısı">
+          <span class="api-dot"></span><span class="api-text">bağlanıyor…</span>
+        </span>
+        <span class="plate" id="plate"></span>
+        <span class="car-meta" id="car-meta"></span>
+        <span class="user-chip" id="user-chip">
+          <span class="user-name" id="user-name"></span>
+          <span class="user-role" id="user-role"></span>
+          <button class="logout-btn" id="logout-btn" type="button" title="Çıkış yap" aria-label="Çıkış yap">⏻</button>
+        </span>
+      </div>
+    </header>
+
+    <main id="view-root">
+      <!-- ============ SERVİS PANELİ ============ -->
+      <div class="view service" id="view-servis">
+        <aside class="pcol" id="svc-left">
+          <section class="card veh-card">
+            <div class="veh-top">
+              <div class="avatar" id="veh-avatar"></div>
+              <div class="veh-id">
+                <div class="veh-owner" id="veh-owner"></div>
+                <div class="veh-sub" id="veh-phone"></div>
+              </div>
+            </div>
+            <div class="veh-grid" id="veh-grid"></div>
+            <div class="reminders">
+              <div class="reminders-label">Bakım Hatırlatmaları</div>
+              <ul class="reminder-list" id="reminder-list"></ul>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><span class="card-title">Kasa tipi</span></div>
+            <div class="seg" id="body-seg" role="group" aria-label="Kasa tipi">
+              <button data-body="sedan">Sedan</button>
+              <button data-body="hatchback">Hatchback</button>
+              <button data-body="suv">SUV</button>
+            </div>
+          </section>
+
+          <section class="card grow">
+            <div class="card-head">
+              <span class="card-title">Bölgeler</span>
+              <span class="card-count" id="region-count"></span>
+            </div>
+            <ul class="region-list" id="region-list"></ul>
+          </section>
+        </aside>
+
+        <section class="scene-slot" id="slot-servis"></section>
+
+        <aside class="pcol" id="svc-right">
+          <section class="card cart-card">
+            <div class="card-head">
+              <span class="card-title">İşlem Sepeti</span>
+              <span class="badge" id="cart-count"></span>
+            </div>
+            <div class="km-chip" id="cart-km"></div>
+            <div id="cart-list"></div>
+            <button class="ghost-btn" id="template-btn" type="button">
+              <span class="gb-plus">＋</span> Şablon: 10.000 km bakımı
+            </button>
+            <div class="totals" id="totals"></div>
+            <button class="cta block" id="save-btn" type="button">KAYDET VE RAPORLA</button>
+          </section>
+        </aside>
+      </div>
+
+      <!-- ============ MÜŞTERİ GÖRÜNÜMÜ ============ -->
+      <div class="view customer hidden" id="view-musteri">
+        <section class="scene-slot" id="slot-musteri"></section>
+        <aside class="pcol" id="cust-right">
+          <section class="card">
+            <div class="health" id="health"></div>
+            <div class="health-chips" id="health-chips"></div>
+            <button class="cta block report-cta" id="report-btn" type="button">RAPORU GÖRÜNTÜLE</button>
+          </section>
+          <section class="card">
+            <div class="card-head"><span class="card-title">Bakım Takvimi</span></div>
+            <ul class="reminder-list full" id="cust-reminder-list"></ul>
+          </section>
+          <section class="card grow">
+            <div class="card-head"><span class="card-title">Zaman Çizelgesi</span></div>
+            <div class="timeline" id="timeline"></div>
+          </section>
+        </aside>
+      </div>
+
+      <!-- ============ KAPORTA DURUMU ============ -->
+      <div class="view panels hidden" id="view-kaporta">
+        <section class="card panel-diagram-card">
+          <div class="card-head">
+            <span class="card-title">Üstten Görünüm</span>
+            <span class="card-count" id="panel-hint"></span>
+          </div>
+          <div class="panel-legend" id="panel-legend"></div>
+          <div class="panel-svg-wrap" id="panel-svg-wrap"></div>
+        </section>
+        <aside class="pcol">
+          <section class="card grow">
+            <div class="card-head">
+              <span class="card-title">Parça Listesi</span>
+              <span class="card-count" id="panel-count"></span>
+            </div>
+            <div class="panel-list" id="panel-list"></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <!-- 3D sahne — görünümler arasında taşınan tek örnek -->
+    <div id="viewport" class="viewport-detached">
+      <canvas id="gl"></canvas>
+      <canvas id="overlay" aria-hidden="true"></canvas>
+      <nav class="cam-row" aria-label="Kamera açıları">
+        <button class="cam" data-view="yan">Yan</button>
+        <button class="cam" data-view="on">Ön</button>
+        <button class="cam" data-view="ust">Üst</button>
+        <button class="cam active" data-view="orbit">3D Orbit</button>
+      </nav>
+      <div class="paint-picker" id="paint-picker">
+        <span class="paint-label">Renk</span>
+        <div class="paint-target" id="paint-target" role="group" aria-label="Boyanacak parça">
+          <button data-zone="hood" class="active">Kaput</button>
+          <button data-zone="doors">Kapılar</button>
+          <button data-zone="trunk">Bagaj</button>
+          <button data-zone="body">Gövde</button>
+        </div>
+        <div class="paint-swatches" id="paint-swatches" role="group" aria-label="Renk seç"></div>
+      </div>
+      <button class="colabel" id="lab-motor" data-region="motor">
+        <span class="t">MOTOR BÖLGESİ</span>
+        <span class="s"></span>
+      </button>
+      <button class="colabel" id="lab-amortisor" data-region="amortisor">
+        <span class="t">ARKA AMORTİSÖR</span>
+        <span class="s"></span>
+      </button>
+      <button class="colabel" id="lab-fren" data-region="fren">
+        <span class="t">ÖN FREN</span>
+        <span class="s"></span>
+      </button>
+    </div>
+
+    <footer class="bar bottom">
+      <div class="hints">
+        <span><b>Sürükle</b> döndür</span>
+        <span><b>Tekerlek</b> yakınlaştır</span>
+        <span><b>Dokun</b> bölge aç/kapat</span>
+      </div>
+      <span id="op-summary"></span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# İşletim sistemi / editör
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Alt projelerin kendi .gitignore'ları node_modules/dist/.gradle/build/*.db/uploads
+# gibi üretim çıktılarını zaten kapsıyor (app/.gitignore, server/.gitignore).
