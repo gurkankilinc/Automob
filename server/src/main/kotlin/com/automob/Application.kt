@@ -11,6 +11,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.*
 import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
@@ -37,6 +38,7 @@ fun Application.module() {
         allowHost("127.0.0.1:5173")
         allowMethod(HttpMethod.Get)
         allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Options)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
@@ -59,6 +61,10 @@ fun Application.module() {
         }
     }
     install(StatusPages) {
+        // Gövde çözümlenemedi / geçersiz enum değeri → istemci hatası (500 değil)
+        exception<BadRequestException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, ApiError(cause.message ?: "Geçersiz istek"))
+        }
         exception<Throwable> { call, cause ->
             call.respond(HttpStatusCode.InternalServerError, ApiError(cause.message ?: "Sunucu hatası"))
         }

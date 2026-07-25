@@ -105,6 +105,41 @@ data class Reminder(
     val remainingDays: Long? = null,
 )
 
+// ---------- Kaporta / boya durumu ----------
+
+@Serializable
+enum class PanelState {
+    @SerialName("orijinal") ORIJINAL,
+    @SerialName("lokal-boyali") LOKAL_BOYALI,
+    @SerialName("boyali") BOYALI,
+    @SerialName("degisen") DEGISEN,
+}
+
+@Serializable
+data class PanelStatus(
+    val panelId: String,
+    val state: PanelState,
+    val note: String? = null,
+    val updatedAt: String? = null,
+    val updatedBy: String? = null,
+)
+
+@Serializable
+data class UpdatePanelRequest(
+    val state: PanelState,
+    val note: String? = null,
+)
+
+/**
+ * Geçerli kaporta paneli kimlikleri — frontend'deki src/data/bodyPanels.ts ile
+ * birebir eşleşmelidir (bilinmeyen panel kimliği 400 ile reddedilir).
+ */
+val BODY_PANEL_IDS: Set<String> = setOf(
+    "on-tampon", "kaput", "tavan", "bagaj", "arka-tampon",
+    "sol-on-camurluk", "sag-on-camurluk", "sol-arka-camurluk", "sag-arka-camurluk",
+    "sol-on-kapi", "sag-on-kapi", "sol-arka-kapi", "sag-arka-kapi",
+)
+
 // ---------- Kimlik doğrulama ----------
 
 @Serializable

@@ -66,6 +66,16 @@ export interface ApiReminder {
   remainingDays: number | null;
 }
 
+export type ApiPanelState = "orijinal" | "lokal-boyali" | "boyali" | "degisen";
+
+export interface ApiPanelStatus {
+  panelId: string;
+  state: ApiPanelState;
+  note: string | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
 export type ApiUserRole = "isletme" | "musteri";
 
 export interface ApiLoginResponse {
@@ -136,6 +146,14 @@ export const api = {
   createRecord: (plate: string, body: { km: number; items: ApiRecordItem[] }) =>
     j<ApiRecord>(`/vehicles/${encodeURIComponent(plate)}/records`, {
       method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getPanels: (plate: string) => j<ApiPanelStatus[]>(`/vehicles/${encodeURIComponent(plate)}/panels`),
+
+  setPanel: (plate: string, panelId: string, body: { state: ApiPanelState; note?: string }) =>
+    j<ApiPanelStatus>(`/vehicles/${encodeURIComponent(plate)}/panels/${encodeURIComponent(panelId)}`, {
+      method: "PUT",
       body: JSON.stringify(body),
     }),
 

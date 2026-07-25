@@ -3,6 +3,7 @@ package com.automob
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
@@ -20,9 +21,12 @@ object DatabaseFactory {
     fun init(dbPath: String = "automob.db") {
         Database.connect("jdbc:sqlite:$dbPath", driver = "org.sqlite.JDBC")
         transaction {
-            SchemaUtils.createMissingTablesAndColumns(Vehicles, ServiceRecords, RecordItems, Suggestions, Users)
+            SchemaUtils.createMissingTablesAndColumns(
+                Vehicles, ServiceRecords, RecordItems, Suggestions, Users, BodyPanels,
+            )
             seedVehiclesIfEmpty()
             seedUsersIfEmpty()
+            seedPanelsIfEmpty()
         }
     }
 
@@ -106,6 +110,32 @@ object DatabaseFactory {
     /** Var olan (önceki oturumdan kalma) `automob.db`de vehicles doluysa da ownerEmail eksik kalabilir — tamamla. */
     private fun backfillOwnerEmail() {
         Vehicles.update({ Vehicles.plate eq "34ABC123" }) { it[ownerEmail] = "musteri@example.com" }
+    }
+
+    /**
+     * Demo aracın kaporta geçmişi — özellik boş bir diyagramla değil, gerçekçi bir
+     * ekspertiz tablosuyla açılsın diye. Kayıtsız panel "orijinal" sayılır.
+     */
+    private fun seedPanelsIfEmpty() {
+        if (BodyPanels.selectAll().count() > 0) return
+        if (Vehicles.select { Vehicles.plate eq "34ABC123" }.empty()) return
+
+        val now = java.time.Instant.now().toString()
+        val demo = listOf(
+            Triple("sol-on-camurluk", "boyali", "önceki sahibinde onarım"),
+            Triple("on-tampon", "degisen", "park çarpması sonrası"),
+            Triple("sol-on-kapi", "lokal-boyali", "çizik rötuşu"),
+        )
+        for ((panel, state, note) in demo) {
+            BodyPanels.insert {
+                it[vehiclePlate] = "34ABC123"
+                it[panelId] = panel
+                it[BodyPanels.state] = state
+                it[BodyPanels.note] = note
+                it[updatedAt] = now
+                it[updatedBy] = "servis@ustamotors.com"
+            }
+        }
     }
 
     private fun seedUsersIfEmpty() {

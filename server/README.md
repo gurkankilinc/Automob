@@ -35,6 +35,8 @@ Windows'ta JDK yolu `gradle.properties` içinde `org.gradle.java.home` ile sabit
 | GET  | `/api/vehicles/{plate}/records` | Servis geçmişi (yeniden eskiye) |
 | GET  | `/api/vehicles/{plate}/suggestions` | Bekleyen öneriler |
 | GET  | `/api/vehicles/{plate}/reminders` | Km/tarih bazlı bakım hatırlatmaları |
+| GET  | `/api/vehicles/{plate}/panels` | Kaporta/boya durumu (kayıtsız panel = `orijinal`) |
+| PUT  | `/api/vehicles/{plate}/panels/{panelId}` | Panel durumu yaz (gövde: `{ state, note? }`) — yalnızca `isletme` |
 | POST | `/api/vehicles/{plate}/records` | Yeni servis kaydı (gövde: `{ km, items[] }`) |
 | POST | `/api/auth/login` | Giriş (gövde: `{ email, password }`) → JWT |
 | GET  | `/api/auth/me` | Geçerli oturumun bilgisi |
@@ -74,6 +76,20 @@ boyut 8 MB, yalnızca `image/*` içerik türü kabul edilir — bu basit bir sı
 Servis kaydındaki her kalem artık `photos: string[]` taşıyabilir
 (`record_items.photos_json` — JSON dizisi olarak saklanır).
 
+## Kaporta / boya durumu
+
+`body_panels` tablosu araç başına panel durumunu tutar (13 panel × 4 durum:
+`orijinal` · `lokal-boyali` · `boyali` · `degisen`). `(vehicle_plate, panel_id)`
+üzerinde tekil indeks vardır; yazma bir **upsert**'tir. Kayıt bulunmayan panel
+istemci tarafında `orijinal` sayılır — yani "hepsi orijinal" durumu sıfır satır
+demektir.
+
+Ekspertiz niteliğinde bir veri olduğu için `updated_at` / `updated_by` birlikte
+saklanır: bir panelin ne zaman ve hangi kullanıcı tarafından işaretlendiği
+sonradan tartışma konusu olabilir. Geçerli panel kimlikleri `BODY_PANEL_IDS`
+ile sınırlıdır (frontend'deki `src/data/bodyPanels.ts` ile birebir eşleşir);
+bilinmeyen kimlik veya geçersiz durum değeri `400` ile reddedilir.
+
 ## Bakım hatırlatmaları
 
 `MaintenanceRules.kt` içindeki sabit kural listesi (motor yağı, triger, balata,
@@ -101,7 +117,7 @@ src/main/kotlin/com/automob/
   AuthConfig.kt         — JWT secret/issuer + token üretimi
   AuthRoutes.kt          — /api/auth/login, /api/auth/me
   DatabaseFactory.kt   — SQLite bağlantısı, şema göçü (createMissingTablesAndColumns), boşsa demo veri ekleme
-  Tables.kt            — Exposed tablo tanımları (vehicles, service_records, record_items, suggestions, users)
+  Tables.kt            — Exposed tablo tanımları (vehicles, service_records, record_items, suggestions, users, body_panels)
   Repository.kt        — veri erişimi (transaction { } içinde Exposed DSL) + reminders() hesabı
   Routing.kt           — uç nokta tanımları + JWT yetkilendirme kontrolleri + /api/uploads
   Models.kt            — @Serializable DTO'lar (frontend TS ile eşleşir) — DB tablolarından ayrı katman

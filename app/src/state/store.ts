@@ -41,11 +41,18 @@ export const store = {
   cart: [] as CartItem[],
   history: [] as ServiceRecord[],
   reminders: [] as Reminder[],
-  /** Kaporta/boya durumu — Faz 1'de yerel (oturum içi); bkz. ui/panelDiagram.ts */
+  /** Kaporta/boya durumu — backend'den yüklenir, değişiklik oraya yazılır. */
   panelStatus: {} as Partial<Record<PanelId, PanelStatus>>,
 
   setPanelState(id: PanelId, state: PanelState, note?: string): void {
     this.panelStatus[id] = { state, note };
+    this.notify();
+  },
+
+  /** Sunucudan gelen tam listeyle değiştirir (kayıtsız panel = orijinal). */
+  replacePanelStatus(list: { panelId: string; state: PanelState; note?: string }[]): void {
+    this.panelStatus = {};
+    for (const p of list) this.panelStatus[p.panelId as PanelId] = { state: p.state, note: p.note };
     this.notify();
   },
 

@@ -117,14 +117,20 @@ async function bootstrap(): Promise<void> {
   setBadge(apiOnline);
   if (!apiOnline) return;
   try {
-    const [svc, veh, recs, cat] = await Promise.all([
+    const [svc, veh, recs, cat, panels] = await Promise.all([
       api.getService(),
       api.getVehicle(demoVehicle.plate),
       api.getRecords(demoVehicle.plate),
       api.getCatalog(),
+      api.getPanels(demoVehicle.plate),
     ]);
     Object.assign(service, svc);
     Object.assign(demoVehicle, veh);
+    store.replacePanelStatus(panels.map((p) => ({
+      panelId: p.panelId,
+      state: p.state as PanelState,
+      note: p.note ?? undefined,
+    })));
     store.history.splice(0, store.history.length, ...recs.map((r) => ({
       date: r.date,
       dateIso: r.dateIso,
@@ -478,6 +484,25 @@ async function start(): Promise<void> {
     svgContainer: document.getElementById("panel-svg-wrap")!,
     listContainer: document.getElementById("panel-list")!,
     canEdit: !isMusteri,
+    // İyimser güncelleme: arayüz anında değişir, yazma arka planda gider.
+    // Hata olursa sunucudaki gerçek durumu geri yükleyip kullanıcıyı uyarırız.
+    onChange: (panelId, state, note) => {
+      if (!apiOnline) {
+        showToast("Çevrimdışı — kaporta durumu yalnızca bu oturumda saklandı.");
+        return;
+      }
+      void api.setPanel(demoVehicle.plate, panelId, { state, note })
+        .catch(async (err) => {
+          console.warn("Kaporta durumu kaydedilemedi:", err);
+          showToast("Kaporta durumu kaydedilemedi — sunucudaki hâline dönüldü.");
+          try {
+            const fresh = await api.getPanels(demoVehicle.plate);
+            store.replacePanelStatus(fresh.map((p) => ({
+              panelId: p.panelId, state: p.state as PanelState, note: p.note ?? undefined,
+            })));
+          } catch { /* sunucuya hiç ulaşılamıyor — yerel durum kalsın */ }
+        });
+    },
   });
 
   switchTab(parseTab(location.hash));

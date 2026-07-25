@@ -4,10 +4,12 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -132,6 +134,69 @@ object Repository {
                     price = it[Suggestions.price], note = it[Suggestions.note],
                 )
             }
+    }
+
+    // ---------- Kaporta / boya durumu ----------
+
+    private fun parsePanelState(raw: String): PanelState = when (raw) {
+        "lokal-boyali" -> PanelState.LOKAL_BOYALI
+        "boyali" -> PanelState.BOYALI
+        "degisen" -> PanelState.DEGISEN
+        else -> PanelState.ORIJINAL
+    }
+
+    private fun panelStateKey(state: PanelState): String = when (state) {
+        PanelState.LOKAL_BOYALI -> "lokal-boyali"
+        PanelState.BOYALI -> "boyali"
+        PanelState.DEGISEN -> "degisen"
+        PanelState.ORIJINAL -> "orijinal"
+    }
+
+    /** Kayıtlı panel durumları; kayıt yoksa panel "orijinal" sayılır (istemci varsayar). */
+    fun panels(plate: String): List<PanelStatus> = transaction {
+        BodyPanels.select { BodyPanels.vehiclePlate eq norm(plate) }
+            .map {
+                PanelStatus(
+                    panelId = it[BodyPanels.panelId],
+                    state = parsePanelState(it[BodyPanels.state]),
+                    note = it[BodyPanels.note],
+                    updatedAt = it[BodyPanels.updatedAt],
+                    updatedBy = it[BodyPanels.updatedBy],
+                )
+            }
+    }
+
+    /** Tek panelin durumunu yazar (upsert). Araç yoksa null döner. */
+    fun setPanel(
+        plate: String, panelId: String, state: PanelState, note: String?, by: String?,
+    ): PanelStatus? = transaction {
+        val key = norm(plate)
+        if (Vehicles.select { Vehicles.plate eq key }.empty()) return@transaction null
+
+        val now = Instant.now().toString()
+        val stateKey = panelStateKey(state)
+        val exists = !BodyPanels
+            .select { (BodyPanels.vehiclePlate eq key) and (BodyPanels.panelId eq panelId) }
+            .empty()
+
+        if (exists) {
+            BodyPanels.update({ (BodyPanels.vehiclePlate eq key) and (BodyPanels.panelId eq panelId) }) {
+                it[BodyPanels.state] = stateKey
+                it[BodyPanels.note] = note
+                it[updatedAt] = now
+                it[updatedBy] = by
+            }
+        } else {
+            BodyPanels.insert {
+                it[vehiclePlate] = key
+                it[BodyPanels.panelId] = panelId
+                it[BodyPanels.state] = stateKey
+                it[BodyPanels.note] = note
+                it[updatedAt] = now
+                it[updatedBy] = by
+            }
+        }
+        PanelStatus(panelId, state, note, now, by)
     }
 
     /** Yeni servis kaydı: geçmişe eklenir, aracın km'si güncellenir. */

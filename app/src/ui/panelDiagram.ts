@@ -39,16 +39,26 @@ const PANEL_SHAPES: Record<PanelId, string> = {
 let svgRoot: SVGSVGElement | null = null;
 let listRoot: HTMLElement | null = null;
 let interactive = true;
+/** Değişikliği kalıcı hale getirir (backend). Verilmezse yalnızca yerel kalır. */
+let persist: ((id: PanelId, state: PanelState, note?: string) => void) | null = null;
 
 function readState(id: PanelId): PanelState {
   return store.panelStatus[id]?.state ?? "orijinal";
+}
+
+/** İyimser güncelleme: önce yerel durum (anında geri bildirim), sonra kalıcı yazma. */
+function apply(id: PanelId, state: PanelState): void {
+  if (!interactive) return;
+  const note = store.panelStatus[id]?.note;
+  store.setPanelState(id, state, note);
+  persist?.(id, state, note);
 }
 
 function cycle(id: PanelId): void {
   if (!interactive) return;
   const cur = readState(id);
   const next = PANEL_STATE_ORDER[(PANEL_STATE_ORDER.indexOf(cur) + 1) % PANEL_STATE_ORDER.length];
-  store.setPanelState(id, next, store.panelStatus[id]?.note);
+  apply(id, next);
 }
 
 function renderSvg(): void {
@@ -87,7 +97,7 @@ function renderList(): void {
       b.title = PANEL_STATE_LABEL[s];
       b.setAttribute("aria-label", `${def.label}: ${PANEL_STATE_LABEL[s]}`);
       if (interactive) {
-        b.addEventListener("click", () => store.setPanelState(def.id, s, store.panelStatus[def.id]?.note));
+        b.addEventListener("click", () => apply(def.id, s));
       } else {
         b.disabled = true;
       }
@@ -103,8 +113,14 @@ function render(): void {
   renderList();
 }
 
-export function initPanelDiagram(opts: { svgContainer: HTMLElement; listContainer: HTMLElement; canEdit: boolean }): void {
+export function initPanelDiagram(opts: {
+  svgContainer: HTMLElement;
+  listContainer: HTMLElement;
+  canEdit: boolean;
+  onChange?: (id: PanelId, state: PanelState, note?: string) => void;
+}): void {
   interactive = opts.canEdit;
+  persist = opts.onChange ?? null;
   listRoot = opts.listContainer;
 
   const NS = "http://www.w3.org/2000/svg";

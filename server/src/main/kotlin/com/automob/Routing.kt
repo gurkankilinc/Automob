@@ -72,6 +72,28 @@ fun Application.configureRouting() {
                         ?: return@post call.respond(HttpStatusCode.NotFound, ApiError("Araç bulunamadı: $plate"))
                     call.respond(HttpStatusCode.Created, record)
                 }
+
+                get("/panels") {
+                    val plate = call.parameters["plate"]!!
+                    if (!call.vehicleAccess(plate, write = false)) return@get
+                    call.respond(Repository.panels(plate))
+                }
+
+                put("/panels/{panelId}") {
+                    val plate = call.parameters["plate"]!!
+                    if (!call.vehicleAccess(plate, write = true)) return@put
+                    val panelId = call.parameters["panelId"]!!
+                    if (panelId !in BODY_PANEL_IDS) {
+                        return@put call.respond(
+                            HttpStatusCode.BadRequest, ApiError("Bilinmeyen kaporta paneli: $panelId"),
+                        )
+                    }
+                    val req = call.receive<UpdatePanelRequest>()
+                    val by = call.principal<JWTPrincipal>()?.payload?.getClaim("email")?.asString()
+                    val saved = Repository.setPanel(plate, panelId, req.state, req.note?.take(200), by)
+                        ?: return@put call.respond(HttpStatusCode.NotFound, ApiError("Araç bulunamadı: $plate"))
+                    call.respond(saved)
+                }
             }
 
             post("/api/uploads") {

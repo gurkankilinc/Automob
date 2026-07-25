@@ -35,7 +35,8 @@ Demo hesapları (backend README'sinde detaylı): `servis@ustamotors.com` / `serv
   kayış-kasnak, radyatör + fan, hava filtresi, akü, depolar, kule takozları.
 - **Bakım bölgeleri** — motor/ön fren/arka amortisör; işlem/öneri durumu.
 - **Kaporta durumu** — üstten görünüm SVG paneli (13 panel), 4 durum
-  (orijinal/lokal boyalı/boyalı/değişen), tıkla-değiştir.
+  (orijinal/lokal boyalı/boyalı/değişen), tıkla-değiştir. Backend'e kalıcı yazılır
+  (iyimser güncelleme: arayüz anında değişir, hata olursa sunucudaki hâline döner).
 - **Boya özelleştirme** — kaput/kapılar/bagaj/gövde ayrı ayrı, 10 renk.
 - **Km/tarih bazlı bakım hatırlatmaları** — backend çevrimdışıyken de yerel hesap.
 - **Katalog + işlem sepeti + fotoğraf yükleme** — servis kaydı oluşturma akışı.
@@ -85,6 +86,5 @@ Yalnızca `npm run dev` derlemesinde çalışan, görsel doğrulama/demo için d
 
 ## Sonraki adımlar
 
-- Kaporta durumunun backend'e kalıcı yazılması (şu an oturum içi/yerel).
 - Self-servis müşteri kaydı, çoklu araç desteği.
 - Gerçek 3D model kenar geometrisinden otomatik tel kafes (EdgesGeometry).

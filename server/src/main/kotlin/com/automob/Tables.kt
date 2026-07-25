@@ -34,6 +34,12 @@ object ServiceRecords : Table("service_records") {
     val km = integer("km")
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        // SQLite yabancı anahtarları otomatik indekslemez; araç geçmişi her
+        // görüntülemede bu kolonla sorgulanıyor (bkz. docs/VERITABANI.md §2.1).
+        index(false, vehiclePlate)
+    }
 }
 
 object RecordItems : Table("record_items") {
@@ -46,6 +52,10 @@ object RecordItems : Table("record_items") {
     val photosJson = text("photos_json").nullable()
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(false, recordId)
+    }
 }
 
 object Suggestions : Table("suggestions") {
@@ -57,6 +67,34 @@ object Suggestions : Table("suggestions") {
     val note = varchar("note", 200).nullable()
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(false, vehiclePlate)
+    }
+}
+
+/**
+ * Kaporta/boya durumu — araç başına panel (kaput, çamurluk, kapı...) durumu.
+ * Her (araç, panel) çifti için tek satır tutulur; güncel durum modeli.
+ * Kim/ne zaman değiştirdi bilgisi ekspertiz tartışmalarında önemli olduğu için
+ * updated_at / updated_by ile birlikte saklanır.
+ */
+object BodyPanels : Table("body_panels") {
+    val id = integer("id").autoIncrement()
+    val vehiclePlate = varchar("vehicle_plate", 20).references(Vehicles.plate)
+    val panelId = varchar("panel_id", 40)
+    /** orijinal | lokal-boyali | boyali | degisen */
+    val state = varchar("state", 24)
+    val note = varchar("note", 200).nullable()
+    /** ISO-8601 zaman damgası */
+    val updatedAt = varchar("updated_at", 32)
+    val updatedBy = varchar("updated_by", 120).nullable()
+
+    override val primaryKey = PrimaryKey(id)
+
+    init {
+        uniqueIndex(vehiclePlate, panelId)
+    }
 }
 
 /** İşletme (usta/danışman) ve müşteri hesapları. Şifre jBCrypt ile hash'lenir. */
