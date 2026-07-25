@@ -26,7 +26,13 @@ Demo hesapları (backend README'sinde detaylı): `servis@ustamotors.com` / `serv
 ## Özellikler
 
 - **3D tel kafes sahne** — Three.js; sedan/hatchback/SUV kasa tipleri, kamera ön
-  ayarları (yan/ön/üst/orbit), bölgeye dokununca vurgu + etiket.
+  ayarları (yan/ön/üst/orbit + **motor bölmesi**), bölgeye dokununca vurgu + etiket.
+- **Açılır panolar** — kaput, bagaj ve 4 kapı **sol tık ile menteşesinden açılıp
+  kapanır** (araç çubuğundaki düğmelerden de). Kapalı bir pano altındakini fiziksel
+  olarak örter: kaput kapalıyken motora tıklanamaz, önce kaput açılır.
+- **Detaylı iç aksam** — koltuklar, torpido/gösterge paneli, direksiyon, orta konsol,
+  pedallar, tavan döşemesi, bagaj içi; motor bölmesinde blok, emme manifoldu,
+  kayış-kasnak, radyatör + fan, hava filtresi, akü, depolar, kule takozları.
 - **Bakım bölgeleri** — motor/ön fren/arka amortisör; işlem/öneri durumu.
 - **Kaporta durumu** — üstten görünüm SVG paneli (13 panel), 4 durum
   (orijinal/lokal boyalı/boyalı/değişen), tıkla-değiştir.
@@ -65,8 +71,20 @@ src/
   `@fontsource` ile gömülü, Türkçe tam destekli.
 - `prefers-reduced-motion`: otomatik tur, nabız ve geçiş animasyonları kapanır.
 
+## Geliştirme kısayolları
+
+Yalnızca `npm run dev` derlemesinde çalışan, görsel doğrulama/demo için derin bağlantılar:
+
+| Parametre | Örnek | Etki |
+|---|---|---|
+| `demo` | `?demo=isletme` | Demo hesabına otomatik giriş (`isletme` \| `musteri`) |
+| `open` | `?open=hood,doorFL` | Belirtilen panoları açık başlat |
+| `view` | `?view=motorBay` | Kamerayı bu görünümle başlat |
+| `catalog` | `?catalog=motor` | Kalem ekleme penceresini aç |
+| `report` | `?report` | Müşteri raporunu aç |
+
 ## Sonraki adımlar
 
-- Kaput/kapı/bagajın menteşeli açılıp kapanması + "kaput açık" kamera modu.
 - Kaporta durumunun backend'e kalıcı yazılması (şu an oturum içi/yerel).
 - Self-servis müşteri kaydı, çoklu araç desteği.
+- Gerçek 3D model kenar geometrisinden otomatik tel kafes (EdgesGeometry).

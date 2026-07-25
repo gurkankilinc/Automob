@@ -690,10 +690,40 @@ button { font-family: inherit; }
 .panel-state-btn:disabled:hover { opacity: 0.45; }
 .panel-state-btn:focus-visible { outline: 2px solid var(--schema); outline-offset: 2px; }
 
+/* ---------- 3D sahne araç çubuğu (parçalar + renk) ---------- */
+.scene-toolbar {
+  position: absolute; z-index: 3; top: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  max-width: calc(100% - 28px);
+}
+
+.parts-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  background: var(--stage-chrome-bg); backdrop-filter: blur(6px);
+  border: 1px solid var(--stage-chrome-line); border-radius: 999px; padding: 7px 10px;
+}
+.parts-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+.parts-btns button {
+  font-family: var(--font-display); background: rgba(255,255,255,0.05); border: 1px solid transparent;
+  color: var(--stage-chrome-muted); font-size: 11.5px; padding: 5px 11px; border-radius: 999px;
+  cursor: pointer; white-space: nowrap; transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.parts-btns button:hover { color: var(--stage-chrome-text); }
+.parts-btns button.open {
+  color: var(--schema); border-color: var(--schema); background: rgba(245,201,62,0.12);
+}
+.parts-btns button:focus-visible { outline: 2px solid var(--schema); outline-offset: 2px; }
+.parts-all {
+  font-family: var(--font-display); background: none; border: 1px solid var(--stage-chrome-line);
+  color: var(--stage-chrome-muted); font-size: 11.5px; padding: 5px 11px; border-radius: 999px;
+  cursor: pointer; white-space: nowrap;
+}
+.parts-all:hover { color: var(--stage-chrome-text); border-color: var(--stage-chrome-muted); }
+.parts-all:focus-visible { outline: 2px solid var(--schema); outline-offset: 2px; }
+
 /* ---------- 3D renk seçici ---------- */
 .paint-picker {
-  position: absolute; z-index: 3; top: 16px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
   background: var(--stage-chrome-bg); backdrop-filter: blur(6px);
   border: 1px solid var(--stage-chrome-line); border-radius: 999px; padding: 7px 10px;
 }
@@ -715,7 +745,8 @@ button { font-family: inherit; }
 .paint-swatches button.active { border-color: var(--stage-chrome-text); box-shadow: 0 0 0 2px rgba(0,0,0,0.4); }
 .paint-swatches button:focus-visible { outline: 2px solid var(--schema); outline-offset: 2px; }
 @media (max-width: 900px) {
-  .paint-picker { flex-wrap: wrap; justify-content: center; max-width: calc(100% - 28px); border-radius: 14px; }
+  .paint-picker, .parts-row { border-radius: 14px; }
+  .scene-toolbar { gap: 6px; }
 }
 
 /* ---------- Dar ekran ---------- */

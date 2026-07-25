@@ -3,7 +3,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
-import { buildCarWireframe, type BodyType, type RegionId, type PaintZone } from "./carWireframe";
+import {
+  buildCarWireframe,
+  type BodyType, type RegionId, type PaintZone, type OpenablePart, type PartDef,
+} from "./carWireframe";
 import {
   getRegionDefs, createGlowTexture, MODE_COLOR, MODE_GLOW,
   type RegionDef, type RegionMode,
@@ -11,13 +14,26 @@ import {
 import { Callouts } from "./callouts";
 import { PALETTE } from "./palette";
 
-export type ViewName = "yan" | "on" | "ust" | "orbit";
+export type ViewName = "yan" | "on" | "ust" | "orbit" | "motorBay";
 
-const VIEWS: Record<ViewName, { azimuth: number; polar: number }> = {
-  yan: { azimuth: 0, polar: 1.51 },
-  on: { azimuth: Math.PI / 2, polar: 1.47 },
-  ust: { azimuth: -0.6, polar: 0.32 },
-  orbit: { azimuth: -0.6, polar: 1.27 },
+interface ViewDef {
+  azimuth: number;
+  polar: number;
+  /** Verilmezse mevcut uzaklık korunur */
+  radius?: number;
+  /** Verilmezse aracın merkezi hedeflenir */
+  target?: "car" | "bay";
+  /** Bu görünüme geçerken kaputu otomatik aç */
+  openHood?: boolean;
+}
+
+const VIEWS: Record<ViewName, ViewDef> = {
+  yan: { azimuth: 0, polar: 1.51, target: "car" },
+  on: { azimuth: Math.PI / 2, polar: 1.47, target: "car" },
+  ust: { azimuth: -0.6, polar: 0.32, target: "car" },
+  orbit: { azimuth: -0.6, polar: 1.27, target: "car" },
+  // Kaput açıkken motor bölmesini üstten-önden inceleme modu
+  motorBay: { azimuth: 1.02, polar: 0.76, radius: 5.6, target: "bay", openHood: true },
 };
 
 interface RegionRuntime {
@@ -30,9 +46,20 @@ interface RegionRuntime {
   hitMeshes: THREE.Mesh[];
 }
 
+interface PartRuntime {
+  def: PartDef;
+  group: THREE.Group;
+  axis: THREE.Vector3;
+  /** 0 = kapalı, 1 = tam açık (animasyonlu) */
+  k: number;
+  open: boolean;
+}
+
 export class AutomobScene {
-  /** 3D'de bölgeye tıklanınca çağrılır — aç/kapat kararı dışarıda verilir. */
+  /** 3D'de bakım bölgesine tıklanınca — aç/kapat kararı dışarıda verilir. */
   onRegionClicked?: (id: RegionId) => void;
+  /** Açılır parçaya (kaput/kapı/bagaj) tıklanınca — durum zaten değişmiş olur. */
+  onPartToggled?: (id: OpenablePart, open: boolean) => void;
   onViewInterrupted?: () => void;
 
   private renderer: THREE.WebGLRenderer;
@@ -45,17 +72,23 @@ export class AutomobScene {
   private paintMaterials = new Map<PaintZone, LineMaterial[]>();
   private paintColors = new Map<PaintZone, number>();
   private regions = new Map<RegionId, RegionRuntime>();
+  private partsRt = new Map<OpenablePart, PartRuntime>();
+  private partHits: THREE.Mesh[] = [];
   private modes = new Map<RegionId, RegionMode>();
   private defs: RegionDef[] = [];
   private doneTex = createGlowTexture(MODE_GLOW.done);
   private suggestTex = createGlowTexture(MODE_GLOW.suggest);
   private raycaster = new THREE.Raycaster();
   private target = new THREE.Vector3(0, 0.72, 0);
+  private carTarget = new THREE.Vector3(0, 0.72, 0);
+  private bayTarget = new THREE.Vector3(1.6, 0.85, 0);
   private reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   private lastInteract = 0;
   private tween: {
     t0: number; dur: number;
     az0: number; pol0: number; az1: number; pol1: number;
+    r0: number; r1: number;
+    tg0: THREE.Vector3; tg1: THREE.Vector3;
   } | null = null;
   private downAt: { x: number; y: number } | null = null;
 
@@ -77,7 +110,7 @@ export class AutomobScene {
     this.controls.target.copy(this.target);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minDistance = 4.2;
+    this.controls.minDistance = 2.2;
     this.controls.maxDistance = 11;
     this.controls.minPolarAngle = 0.25;
     this.controls.maxPolarAngle = 1.6;
@@ -140,11 +173,14 @@ export class AutomobScene {
   }
 
   setBodyType(body: BodyType): void {
-    const saved = new Map(this.modes);
+    const savedModes = new Map(this.modes);
+    const savedOpen = new Map<OpenablePart, boolean>();
+    for (const [id, rt] of this.partsRt) savedOpen.set(id, rt.open);
     this.disposeCar();
     this.buildCar(body);
-    for (const [id, m] of saved) this.setRegionMode(id, m);
+    for (const [id, m] of savedModes) this.setRegionMode(id, m);
     for (const [zone, color] of this.paintColors) this.applyPaintColor(zone, color);
+    for (const [id, open] of savedOpen) if (open) this.setPartOpen(id, true);
     this.lastInteract = performance.now();
   }
 
@@ -154,10 +190,32 @@ export class AutomobScene {
     this.applyPaintColor(zone, color);
   }
 
-  private applyPaintColor(zone: PaintZone, color: number): void {
-    const mats = this.paintMaterials.get(zone);
-    if (!mats) return;
-    for (const m of mats) m.color.setHex(color);
+  // ---- Açılır parçalar ----
+
+  listParts(): PartDef[] {
+    return [...this.partsRt.values()].map((rt) => rt.def);
+  }
+
+  isPartOpen(id: OpenablePart): boolean {
+    return this.partsRt.get(id)?.open ?? false;
+  }
+
+  setPartOpen(id: OpenablePart, open: boolean): void {
+    const rt = this.partsRt.get(id);
+    if (!rt || rt.open === open) return;
+    rt.open = open;
+    this.lastInteract = performance.now();
+  }
+
+  togglePart(id: OpenablePart): boolean {
+    const rt = this.partsRt.get(id);
+    if (!rt) return false;
+    this.setPartOpen(id, !rt.open);
+    return rt.open;
+  }
+
+  setAllParts(open: boolean): void {
+    for (const id of this.partsRt.keys()) this.setPartOpen(id, open);
   }
 
   setLabelText(id: RegionId, sub: string): void {
@@ -166,13 +224,17 @@ export class AutomobScene {
 
   setView(name: ViewName): void {
     const v = VIEWS[name];
-    this.startTween(v.azimuth, v.polar);
+    if (v.openHood) this.setPartOpen("hood", true);
+    this.startTween(v);
   }
 
   /** Zaman çizelgesinden bölgeye kamera uçuşu. */
   flyToRegion(id: RegionId): void {
     const def = this.defs.find((d) => d.id === id);
-    if (def) this.startTween(def.view.azimuth, def.view.polar);
+    if (!def) return;
+    // Motor bölgesi kaput altında — oraya uçarken kaputu da aç ki içi görünsün.
+    if (id === "motor") this.setPartOpen("hood", true);
+    this.startTween({ azimuth: def.view.azimuth, polar: def.view.polar, target: "car" });
   }
 
   /**
@@ -182,7 +244,9 @@ export class AutomobScene {
   captureReport(modes: ReadonlyMap<RegionId, RegionMode>): string {
     const prevModes = new Map(this.modes);
     const prevPos = this.camera.position.clone();
+    const prevTarget = this.target.clone();
 
+    this.target.copy(this.carTarget);
     this.applySpherical(VIEWS.orbit.azimuth, VIEWS.orbit.polar, 7.4);
     for (const id of ["motor", "fren", "amortisor"] as RegionId[]) {
       this.setRegionMode(id, modes.get(id) ?? "off");
@@ -194,27 +258,44 @@ export class AutomobScene {
     // geri al
     this.renderer.setClearColor(0x000000, 0);
     for (const [id, m] of prevModes) this.setRegionMode(id, m);
+    this.target.copy(prevTarget);
     this.camera.position.copy(prevPos);
     this.camera.lookAt(this.target);
+    this.controls.target.copy(this.target);
     this.controls.update();
     return url;
   }
 
   // ---------- Kurulum ----------
 
-  private startTween(azimuth: number, polar: number): void {
+  private applyPaintColor(zone: PaintZone, color: number): void {
+    const mats = this.paintMaterials.get(zone);
+    if (!mats) return;
+    for (const m of mats) m.color.setHex(color);
+  }
+
+  private startTween(v: ViewDef): void {
     this.lastInteract = performance.now();
+    const tg1 = v.target === "bay" ? this.bayTarget : this.carTarget;
+    const r1 = v.radius ?? this.radius();
     if (this.reduced) {
-      this.applySpherical(azimuth, polar, this.radius());
+      this.target.copy(tg1);
+      this.controls.target.copy(tg1);
+      this.applySpherical(v.azimuth, v.polar, r1);
       this.controls.update();
       return;
     }
     const az0 = this.controls.getAzimuthalAngle();
     const pol0 = this.controls.getPolarAngle();
-    let d = azimuth - az0;
+    let d = v.azimuth - az0;
     while (d > Math.PI) d -= Math.PI * 2;
     while (d < -Math.PI) d += Math.PI * 2;
-    this.tween = { t0: performance.now(), dur: 650, az0, pol0, az1: az0 + d, pol1: polar };
+    this.tween = {
+      t0: performance.now(), dur: 750,
+      az0, pol0, az1: az0 + d, pol1: v.polar,
+      r0: this.radius(), r1,
+      tg0: this.target.clone(), tg1: tg1.clone(),
+    };
   }
 
   private radius(): number {
@@ -234,7 +315,7 @@ export class AutomobScene {
     positions: number[], color: number, widthPx: number, opacity: number, dashed: boolean,
   ): { obj: LineSegments2; mat: LineMaterial } {
     const geo = new LineSegmentsGeometry();
-    geo.setPositions(positions);
+    geo.setPositions(positions.length > 0 ? positions : [0, 0, 0, 0, 0, 0]);
     const mat = new LineMaterial({ color, linewidth: widthPx, transparent: true, opacity, dashed });
     if (dashed) {
       mat.dashSize = 0.09;
@@ -244,6 +325,7 @@ export class AutomobScene {
     this.carMaterials.push(mat);
     const obj = new LineSegments2(geo, mat);
     obj.computeLineDistances();
+    obj.visible = positions.length > 0;
     return { obj, mat };
   }
 
@@ -252,29 +334,67 @@ export class AutomobScene {
     this.defs = getRegionDefs(car.cfg);
     const group = new THREE.Group();
 
+    // Motor bölmesi kamera hedefi (kaput açık inceleme modu için)
+    const e = car.cfg.engine;
+    this.bayTarget.set((e.x0 + e.x1) / 2 + 0.1, e.y1 + 0.05, 0);
+
     const clsStyle: Record<1 | 2 | 3, { w: number; a: number }> = {
       1: { w: 2.0, a: 1.0 },
       2: { w: 1.3, a: 0.6 },
       3: { w: 1.0, a: 0.32 },
     };
+
+    // Sabit, boyanmayan çizgiler (iç mekân + mekanik)
     for (const c of [1, 2, 3] as const) {
       const { obj } = this.makeLines(car.cls[c], PALETTE.schema, clsStyle[c].w, clsStyle[c].a, false);
       group.add(obj);
     }
 
-    // Boyanabilir dış yüzey — her bölge (kaput/kapılar/bagaj/gövde) kendi rengiyle
+    // Boyanabilir sabit dış yüzey
     this.paintMaterials.clear();
+    const zoneMats = (zone: PaintZone): LineMaterial[] => {
+      let m = this.paintMaterials.get(zone);
+      if (!m) { m = []; this.paintMaterials.set(zone, m); }
+      return m;
+    };
     for (const zone of ["hood", "doors", "trunk", "body"] as PaintZone[]) {
       const color = this.paintColors.get(zone) ?? PALETTE.schema;
-      const mats: LineMaterial[] = [];
       for (const c of [1, 2, 3] as const) {
         const { obj, mat } = this.makeLines(car.paint[zone][c], color, clsStyle[c].w, clsStyle[c].a, false);
         group.add(obj);
-        mats.push(mat);
+        zoneMats(zone).push(mat);
       }
-      this.paintMaterials.set(zone, mats);
     }
 
+    // Açılır parçalar — her biri kendi pivotunda bir Group
+    this.partsRt.clear();
+    this.partHits = [];
+    for (const def of Object.values(car.parts)) {
+      const pg = new THREE.Group();
+      pg.position.set(def.pivot[0], def.pivot[1], def.pivot[2]);
+      const color = this.paintColors.get(def.paintZone) ?? PALETTE.schema;
+      for (const c of [1, 2, 3] as const) {
+        const { obj, mat } = this.makeLines(def.cls[c], color, clsStyle[c].w, clsStyle[c].a, false);
+        pg.add(obj);
+        zoneMats(def.paintZone).push(mat);
+      }
+      // Tıklama kutusu — parça ile birlikte döner
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(def.hit.half[0] * 2, def.hit.half[1] * 2, def.hit.half[2] * 2),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+      );
+      hit.position.set(def.hit.center[0], def.hit.center[1], def.hit.center[2]);
+      hit.userData.part = def.id;
+      pg.add(hit);
+      this.partHits.push(hit);
+
+      group.add(pg);
+      this.partsRt.set(def.id, {
+        def, group: pg, axis: new THREE.Vector3(...def.axis).normalize(), k: 0, open: false,
+      });
+    }
+
+    // Bakım bölgeleri
     for (const def of this.defs) {
       const positions = car.regions[def.id];
       const normal = this.makeLines(positions, PALETTE.schema, 1.4, 0.55, false);
@@ -336,6 +456,8 @@ export class AutomobScene {
     this.scene.remove(this.carGroup);
     this.carGroup = null;
     this.regions.clear();
+    this.partsRt.clear();
+    this.partHits = [];
   }
 
   private pick(e: PointerEvent): void {
@@ -345,9 +467,25 @@ export class AutomobScene {
       -((e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(ndc, this.camera);
-    const meshes = [...this.regions.values()].flatMap((r) => r.hitMeshes);
-    const hit = this.raycaster.intersectObjects(meshes, false)[0];
-    if (hit) this.onRegionClicked?.(hit.object.userData.region as RegionId);
+    const regionMeshes = [...this.regions.values()].flatMap((r) => r.hitMeshes);
+    const partHit = this.raycaster.intersectObjects(this.partHits, false)[0];
+    const regionHit = this.raycaster.intersectObjects(regionMeshes, false)[0];
+
+    if (partHit) {
+      const partId = partHit.object.userData.part as OpenablePart;
+      // Kapalı bir pano altındaki her şeyi fiziksel olarak örter: kapak kapalıyken
+      // motor/bagaj içine tıklanamaz, önce pano açılır. Pano açıkken normal
+      // derinlik sırası geçerlidir (kameraya en yakın olan kazanır).
+      const closedCoversAll = !this.isPartOpen(partId);
+      if (closedCoversAll || !regionHit || partHit.distance <= regionHit.distance) {
+        const open = this.togglePart(partId);
+        this.onPartToggled?.(partId, open);
+        return;
+      }
+    }
+    if (regionHit) {
+      this.onRegionClicked?.(regionHit.object.userData.region as RegionId);
+    }
   }
 
   private resize(): void {
@@ -367,12 +505,25 @@ export class AutomobScene {
     if (this.tween) {
       const k = Math.min(1, (t - this.tween.t0) / this.tween.dur);
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      this.target.lerpVectors(this.tween.tg0, this.tween.tg1, e);
+      this.controls.target.copy(this.target);
       this.applySpherical(
         this.tween.az0 + (this.tween.az1 - this.tween.az0) * e,
         this.tween.pol0 + (this.tween.pol1 - this.tween.pol0) * e,
-        this.radius(),
+        this.tween.r0 + (this.tween.r1 - this.tween.r0) * e,
       );
       if (k >= 1) this.tween = null;
+    }
+
+    // Açılır parçaların menteşe animasyonu
+    for (const rt of this.partsRt.values()) {
+      const goal = rt.open ? 1 : 0;
+      if (Math.abs(rt.k - goal) > 0.0015) {
+        rt.k += (goal - rt.k) * (this.reduced ? 1 : 0.14);
+        if (Math.abs(rt.k - goal) <= 0.0015) rt.k = goal;
+        const s = rt.k * rt.k * (3 - 2 * rt.k); // smoothstep
+        rt.group.setRotationFromAxisAngle(rt.axis, rt.def.maxAngle * s);
+      }
     }
 
     this.controls.autoRotate =

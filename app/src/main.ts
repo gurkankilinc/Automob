@@ -10,7 +10,7 @@ import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
 
 import { AutomobScene, type ViewName } from "./scene/AutomobScene";
-import type { BodyType, RegionId, PaintZone } from "./scene/carWireframe";
+import type { BodyType, RegionId, PaintZone, OpenablePart } from "./scene/carWireframe";
 import { BODY_CONFIGS } from "./scene/carWireframe";
 import { demoVehicle } from "./data/demoVehicle";
 import { service } from "./data/service";
@@ -201,6 +201,8 @@ async function start(): Promise<void> {
   const gl = document.getElementById("gl") as HTMLCanvasElement;
   const overlay = document.getElementById("overlay") as HTMLCanvasElement;
   const scene = new AutomobScene(viewport, gl, overlay, demoVehicle.bodyType);
+  // Geliştirme derlemesinde sahneyi konsoldan incelenebilir yap (hata ayıklama).
+  if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__scene = scene;
 
   // Kullanıcının elle gizlediği bölgeler (veri durumundan bağımsız görünürlük)
   const hidden = new Set<RegionId>();
@@ -238,7 +240,8 @@ async function start(): Promise<void> {
   // Otomatik vurgulama: bir bölgeye kalem eklenince görünür yap + kamerayı oraya uçur
   store.onAdd((region) => {
     hidden.delete(region);
-    scene.flyToRegion(region);
+    scene.flyToRegion(region); // motor bölgesi ise kaputu da açar
+    syncPartButtons();
   });
 
   // ---------- Üst bar: kimlik + kasa tipi ----------
@@ -266,6 +269,47 @@ async function start(): Promise<void> {
     });
   }
 
+  // ---------- Açılır parçalar (kaput / kapılar / bagaj) ----------
+  // Sahnede sol tık ile de açılır; buradaki düğmeler hem kısayol hem de
+  // "hangi parça açık" göstergesi olarak çalışır.
+  const PART_SHORT: Record<OpenablePart, string> = {
+    hood: "Kaput", doorFL: "Sol Ön", doorFR: "Sağ Ön",
+    doorRL: "Sol Arka", doorRR: "Sağ Arka", trunk: "Bagaj",
+  };
+  const PART_ORDER: OpenablePart[] = ["hood", "doorFL", "doorFR", "doorRL", "doorRR", "trunk"];
+  const partsBtnWrap = document.getElementById("parts-btns")!;
+  const partsAllBtn = document.getElementById("parts-all") as HTMLButtonElement;
+  const partBtns = new Map<OpenablePart, HTMLButtonElement>();
+  for (const id of PART_ORDER) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = PART_SHORT[id];
+    b.addEventListener("click", () => {
+      scene.togglePart(id);
+      syncPartButtons();
+    });
+    partsBtnWrap.appendChild(b);
+    partBtns.set(id, b);
+  }
+  function syncPartButtons(): void {
+    let anyOpen = false;
+    for (const [id, b] of partBtns) {
+      const open = scene.isPartOpen(id);
+      if (open) anyOpen = true;
+      b.classList.toggle("open", open);
+      b.setAttribute("aria-pressed", open ? "true" : "false");
+      b.title = `${PART_SHORT[id]} — ${open ? "açık (kapatmak için tıkla)" : "kapalı (açmak için tıkla)"}`;
+    }
+    partsAllBtn.textContent = anyOpen ? "Tümünü kapat" : "Tümünü aç";
+  }
+  partsAllBtn.addEventListener("click", () => {
+    const anyOpen = PART_ORDER.some((id) => scene.isPartOpen(id));
+    scene.setAllParts(!anyOpen);
+    syncPartButtons();
+  });
+  scene.onPartToggled = () => syncPartButtons();
+  syncPartButtons();
+
   // ---------- Kamera ön ayarları ----------
   const camButtons = [...document.querySelectorAll<HTMLButtonElement>(".cam")];
   function setActiveCam(name: string | null): void {
@@ -275,6 +319,7 @@ async function start(): Promise<void> {
     b.addEventListener("click", () => {
       scene.setView(b.dataset.view as ViewName);
       setActiveCam(b.dataset.view!);
+      syncPartButtons(); // "Motor Bölmesi" görünümü kaputu otomatik açar
     });
   }
   scene.onViewInterrupted = () => setActiveCam("orbit");
@@ -419,6 +464,7 @@ async function start(): Promise<void> {
       hidden.delete(id);
       syncScene();
       scene.flyToRegion(id);
+      syncPartButtons();
     },
   });
 
@@ -446,13 +492,49 @@ async function start(): Promise<void> {
   if (new URLSearchParams(location.search).has("report")) {
     openReport(buildReportData());
   }
+
+  // Geliştirme kolaylığı: ?open=hood,doorFL ve ?view=motorBay ile sahneyi hazırla
+  // (yalnızca dev derlemesinde — görsel doğrulama/demo için).
+  if (import.meta.env.DEV) {
+    const q = new URLSearchParams(location.search);
+    const open = q.get("open");
+    if (open) {
+      for (const id of open.split(",")) {
+        if (PART_ORDER.includes(id as OpenablePart)) scene.setPartOpen(id as OpenablePart, true);
+      }
+      syncPartButtons();
+    }
+    const view = q.get("view");
+    if (view) {
+      scene.setView(view as ViewName);
+      setActiveCam(view);
+      syncPartButtons();
+    }
+  }
 }
 
 // ---------- Giriş ----------
 
 async function boot(): Promise<void> {
   initLoginScreen();
-  const authed = await auth.restore();
+  let authed = await auth.restore();
+
+  // Geliştirme kolaylığı: ?demo=isletme|musteri ile demo hesabına otomatik giriş.
+  // Yalnızca dev derlemesinde çalışır — üretim paketine dahil edilmez.
+  if (!authed && import.meta.env.DEV) {
+    const demo = new URLSearchParams(location.search).get("demo");
+    const creds: Record<string, [string, string]> = {
+      isletme: ["servis@ustamotors.com", "servis123"],
+      musteri: ["musteri@example.com", "musteri123"],
+    };
+    if (demo && creds[demo]) {
+      try {
+        await auth.login(creds[demo][0], creds[demo][1]);
+        authed = true;
+      } catch { /* backend kapalı olabilir — normal giriş ekranına düş */ }
+    }
+  }
+
   if (authed) {
     showApp();
     started = true;
