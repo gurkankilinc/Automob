@@ -13,10 +13,10 @@ import { store } from "../state/store";
  */
 
 const STATE_VAR: Record<PanelState, string> = {
-  "orijinal": "var(--muted-2)",
-  "lokal-boyali": "var(--schema)",
-  "boyali": "var(--changed)",
-  "degisen": "var(--fault)",
+  "orijinal": "var(--panel-orijinal)",
+  "lokal-boyali": "var(--panel-lokal)",
+  "boyali": "var(--panel-boyali)",
+  "degisen": "var(--panel-degisen)",
 };
 
 // Üstten görünüm geometrisi: viewBox 0 0 240 440, burun yukarıda.

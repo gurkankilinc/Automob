@@ -127,6 +127,14 @@ export class AutomobScene {
       glCanvas.classList.remove("dragging");
     });
 
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.85);
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight1.position.set(6, 12, 8);
+    const dirLight2 = new THREE.DirectionalLight(0x7090c0, 0.7);
+    dirLight2.position.set(-6, -4, -8);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x111827, 0.6);
+    this.scene.add(ambLight, dirLight1, dirLight2, hemiLight);
+
     const grid = new THREE.GridHelper(8, 10, PALETTE.gridCenter, PALETTE.grid);
     const gm = grid.material as THREE.LineBasicMaterial;
     gm.transparent = true;
@@ -152,6 +160,27 @@ export class AutomobScene {
   }
 
   // ---------- Dış API ----------
+
+  private panelMeshes = new Map<string, THREE.Mesh>();
+
+  public setPanelStateColors(panelStates: Record<string, { state: string }>): void {
+    const COLOR_MAP: Record<string, number> = {
+      degisen: 0xEF4444,     // Kırmızı
+      boyali: 0xD2B48C,      // Hafif Açık Kahverengi (Tan / Light Brown)
+      "lokal-boyali": 0xF59E0B, // Amber / Sarı
+      orijinal: 0x475569,    // Nötr Gövde
+    };
+
+    for (const [panelId, mesh] of this.panelMeshes) {
+      const info = panelStates[panelId];
+      const st = info?.state ?? "orijinal";
+      const hex = COLOR_MAP[st] ?? COLOR_MAP.orijinal;
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      mat.color.setHex(hex);
+      mat.opacity = st === "orijinal" ? 0.45 : 0.88;
+      mat.needsUpdate = true;
+    }
+  }
 
   getMode(id: RegionId): RegionMode {
     return this.modes.get(id) ?? "off";
@@ -426,7 +455,6 @@ export class AutomobScene {
         return m;
       });
 
-      group.add(normal.obj, glow, ...hitMeshes);
       this.regions.set(def.id, {
         def,
         lines: normal.obj,
@@ -439,8 +467,226 @@ export class AutomobScene {
       if (!this.modes.has(def.id)) this.modes.set(def.id, "off");
     }
 
+    this.buildVolumetricSolidMeshes(car, group);
+
     this.scene.add(group);
     this.carGroup = group;
+  }
+
+  private buildVolumetricSolidMeshes(car: ReturnType<typeof buildCarWireframe>, group: THREE.Group): void {
+    const cfg = car.cfg;
+    const L = cfg.lift;
+    const e = cfg.engine;
+
+    // 1. MOTOR (Solid Metallic Blue Engine Block + Head + Radiator)
+    const engineGeo = new THREE.BoxGeometry(e.x1 - e.x0, e.y1 - e.y0, e.halfZ * 1.8);
+    const engineMat = new THREE.MeshStandardMaterial({
+      color: 0x2563eb, metalness: 0.65, roughness: 0.25, transparent: true, opacity: 0.9,
+    });
+    const engineMesh = new THREE.Mesh(engineGeo, engineMat);
+    engineMesh.position.set((e.x0 + e.x1) / 2, (e.y0 + e.y1) / 2, 0);
+    group.add(engineMesh);
+
+    const headGeo = new THREE.BoxGeometry((e.x1 - e.x0) * 0.85, 0.12, e.halfZ * 1.4);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 });
+    const headMesh = new THREE.Mesh(headGeo, headMat);
+    headMesh.position.set((e.x0 + e.x1) / 2, e.y1 + 0.06, 0);
+    group.add(headMesh);
+
+    const radX = Math.min(cfg.frontX - 0.1, e.x1 + 0.22);
+    const radGeo = new THREE.BoxGeometry(0.08, e.y1 - e.y0 + 0.1, e.halfZ * 1.8);
+    const radMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.5 });
+    const radMesh = new THREE.Mesh(radGeo, radMat);
+    radMesh.position.set(radX, (e.y0 + e.y1) / 2, 0);
+    group.add(radMesh);
+
+    // 2. ŞANZIMAN (Solid Titanium Gearbox Casing)
+    const gboxGeo = new THREE.BoxGeometry(0.55, 0.38, e.halfZ * 1.2);
+    const gboxMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b, metalness: 0.75, roughness: 0.35, transparent: true, opacity: 0.9,
+    });
+    const gboxMesh = new THREE.Mesh(gboxGeo, gboxMat);
+    gboxMesh.position.set(e.x0 - 0.28, e.y0 + 0.08, 0);
+    group.add(gboxMesh);
+
+    // 3. ŞASİ (Solid Steel Subframe Rails & Crossmembers)
+    const railLen = Math.abs(cfg.frontX - cfg.rearX) + 1.0;
+    const railGeo = new THREE.BoxGeometry(railLen, 0.12, 0.12);
+    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.4 });
+
+    const railL = new THREE.Mesh(railGeo, chassisMat);
+    railL.position.set((cfg.frontX + cfg.rearX) / 2, cfg.sillY - 0.04, -(cfg.bodyHalfW - 0.16));
+    const railR = new THREE.Mesh(railGeo, chassisMat);
+    railR.position.set((cfg.frontX + cfg.rearX) / 2, cfg.sillY - 0.04, +(cfg.bodyHalfW - 0.16));
+    group.add(railL, railR);
+
+    for (const xPos of [cfg.frontX - 0.2, (cfg.frontX + cfg.rearX) / 2, cfg.rearX + 0.2]) {
+      const crossGeo = new THREE.BoxGeometry(0.12, 0.1, (cfg.bodyHalfW - 0.16) * 2);
+      const crossMesh = new THREE.Mesh(crossGeo, chassisMat);
+      crossMesh.position.set(xPos, cfg.sillY - 0.04, 0);
+      group.add(crossMesh);
+    }
+
+    // 4. VİTES (Gear Shift Lever + Knob + Boot)
+    const bootGeo = new THREE.ConeGeometry(0.075, 0.06, 6);
+    const bootMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
+    const bootMesh = new THREE.Mesh(bootGeo, bootMat);
+    bootMesh.position.set(0.58, cfg.sillY + 0.07 + L, 0);
+
+    const leverGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.18, 12);
+    const leverMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
+    const leverMesh = new THREE.Mesh(leverGeo, leverMat);
+    leverMesh.position.set(0.56, cfg.sillY + 0.16 + L, 0);
+    leverMesh.rotation.z = -0.15;
+
+    const knobGeo = new THREE.SphereGeometry(0.042, 16, 16);
+    const knobMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+    const knobMesh = new THREE.Mesh(knobGeo, knobMat);
+    knobMesh.position.set(0.545, cfg.sillY + 0.245 + L, 0);
+    group.add(bootMesh, leverMesh, knobMesh);
+
+    // 5. DİREKSİYON (Steering Wheel - LHD Driver Side, z = -0.34)
+    const wheelGroup = new THREE.Group();
+    wheelGroup.position.set(0.72, 0.88 + L, -0.34);
+    wheelGroup.rotation.z = -0.42;
+
+    const rimGeo = new THREE.TorusGeometry(0.135, 0.018, 12, 24);
+    const stMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+    const rimMesh = new THREE.Mesh(rimGeo, stMat);
+
+    const hubGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.03, 16);
+    const hubMesh = new THREE.Mesh(hubGeo, stMat);
+    hubMesh.rotation.x = Math.PI / 2;
+
+    const colGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.24, 12);
+    const colMesh = new THREE.Mesh(colGeo, stMat);
+    colMesh.position.set(0.1, -0.06, 0);
+    colMesh.rotation.z = 0.5;
+
+    wheelGroup.add(rimMesh, hubMesh, colMesh);
+    group.add(wheelGroup);
+
+    // 6. KOLTUKLAR (Solid Cushions & Backrests)
+    const seatMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75 });
+    const makeSeat = (cx: number, cz: number) => {
+      const sGroup = new THREE.Group();
+      sGroup.position.set(cx, 0.52 + L, cz);
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.1, 0.42), seatMat);
+      cushion.position.set(0.18, 0, 0);
+      const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.54, 0.42), seatMat);
+      backrest.position.set(-0.06, 0.27, 0);
+      backrest.rotation.z = -0.12;
+      const headrest = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.2), seatMat);
+      headrest.position.set(-0.1, 0.6, 0);
+      sGroup.add(cushion, backrest, headrest);
+      group.add(sGroup);
+    };
+    makeSeat(0.1, -0.34);  // Sol Sürücü (LHD)
+    makeSeat(0.1, 0.34);   // Sağ Yolcu
+    makeSeat(-0.72, -0.34);
+    makeSeat(-0.72, 0.34);
+
+    // 7. TORPİDO (Dashboard Block)
+    const dashX = 0.98;
+    const dashGeo = new THREE.BoxGeometry(0.24, 0.28, (cfg.bodyHalfW - 0.1) * 2);
+    const dashMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+    const dashMesh = new THREE.Mesh(dashGeo, dashMat);
+    dashMesh.position.set(dashX, 0.83 + L, 0);
+    group.add(dashMesh);
+
+    // 8. TEKERLEKLER & LASTİKLER (Solid Rubber & Alloy Wheels)
+    const wheelXList = [
+      { x: cfg.frontX, z: cfg.bodyHalfW },
+      { x: cfg.frontX, z: -cfg.bodyHalfW },
+      { x: cfg.rearX, z: cfg.bodyHalfW },
+      { x: cfg.rearX, z: -cfg.bodyHalfW },
+    ];
+    const tireGeo = new THREE.CylinderGeometry(cfg.wheelR, cfg.wheelR, 0.22, 24);
+    const tireMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
+    const rimGeo2 = new THREE.CylinderGeometry(cfg.wheelR * 0.72, cfg.wheelR * 0.72, 0.23, 16);
+    const rimMat2 = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 });
+
+    for (const w of wheelXList) {
+      const wGroup = new THREE.Group();
+      wGroup.position.set(w.x, cfg.wheelY, w.z);
+      wGroup.rotation.x = Math.PI / 2;
+      const tire = new THREE.Mesh(tireGeo, tireMat);
+      const rim = new THREE.Mesh(rimGeo2, rimMat2);
+      wGroup.add(tire, rim);
+      group.add(wGroup);
+    }
+
+    // 9. KAPORTA HACMİ (Solid Volumetric Panels for Kaput, Kapılar, Bagaj, Gövde)
+    this.panelMeshes.clear();
+    const makePanelMesh = (id: string, geo: THREE.BufferGeometry, parent: THREE.Group, pos?: [number, number, number]) => {
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x475569, metalness: 0.3, roughness: 0.35, transparent: true, opacity: 0.65,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      if (pos) mesh.position.set(pos[0], pos[1], pos[2]);
+      parent.add(mesh);
+      this.panelMeshes.set(id, mesh);
+    };
+
+    const hoodDef = this.partsRt.get("hood");
+    if (hoodDef) {
+      const hx0 = cfg.profile[cfg.hoodIdx[0]][0];
+      const hx1 = cfg.profile[cfg.hoodIdx[cfg.hoodIdx.length - 1]][0];
+      const hW = cfg.bodyHalfW * 0.82;
+      const hGeo = new THREE.BoxGeometry(Math.abs(hx1 - hx0), 0.05, hW * 2);
+      makePanelMesh("kaput", hGeo, hoodDef.group, [0, 0, 0]);
+    }
+
+    const trunkDef = this.partsRt.get("trunk");
+    if (trunkDef) {
+      const tx0 = cfg.profile[cfg.tailIdx[0]][0];
+      const tx1 = cfg.profile[cfg.tailIdx[cfg.tailIdx.length - 1]][0];
+      const tW = cfg.bodyHalfW * 0.84;
+      const tGeo = new THREE.BoxGeometry(Math.abs(tx1 - tx0), 0.05, tW * 2);
+      makePanelMesh("bagaj", tGeo, trunkDef.group, [0, 0, 0]);
+    }
+
+    const doorFL = this.partsRt.get("doorFL");
+    if (doorFL) {
+      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sol-on-kapi", dGeo, doorFL.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    }
+
+    const doorFR = this.partsRt.get("doorFR");
+    if (doorFR) {
+      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sag-on-kapi", dGeo, doorFR.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    }
+
+    const doorRL = this.partsRt.get("doorRL");
+    if (doorRL) {
+      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sol-arka-kapi", dGeo, doorRL.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    }
+
+    const doorRR = this.partsRt.get("doorRR");
+    if (doorRR) {
+      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sag-arka-kapi", dGeo, doorRR.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    }
+
+    // Sabit Gövde Panelleri
+    const roofGeo = new THREE.BoxGeometry(1.6, 0.04, cfg.glassZ * 2);
+    makePanelMesh("tavan", roofGeo, group, [0, cfg.profile[4] ? cfg.profile[4][1] : 1.38, 0]);
+
+    const frontBumperGeo = new THREE.BoxGeometry(0.3, 0.4, cfg.bodyHalfW * 2);
+    makePanelMesh("on-tampon", frontBumperGeo, group, [cfg.frontX + 0.5, cfg.sillY + 0.15, 0]);
+
+    const rearBumperGeo = new THREE.BoxGeometry(0.3, 0.4, cfg.bodyHalfW * 2);
+    makePanelMesh("arka-tampon", rearBumperGeo, group, [cfg.rearX - 0.5, cfg.sillY + 0.15, 0]);
+
+    const fenderFrontGeo = new THREE.BoxGeometry(0.6, 0.45, 0.06);
+    makePanelMesh("sol-on-camurluk", fenderFrontGeo, group, [cfg.frontX, cfg.sillY + 0.25, -cfg.bodyHalfW]);
+    makePanelMesh("sag-on-camurluk", fenderFrontGeo, group, [cfg.frontX, cfg.sillY + 0.25, cfg.bodyHalfW]);
+
+    const fenderRearGeo = new THREE.BoxGeometry(0.6, 0.45, 0.06);
+    makePanelMesh("sol-arka-camurluk", fenderRearGeo, group, [cfg.rearX, cfg.sillY + 0.25, -cfg.bodyHalfW]);
+    makePanelMesh("sag-arka-camurluk", fenderRearGeo, group, [cfg.rearX, cfg.sillY + 0.25, cfg.bodyHalfW]);
   }
 
   private disposeCar(): void {
