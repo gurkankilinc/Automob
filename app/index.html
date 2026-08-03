@@ -116,6 +116,10 @@
               <button data-body="sedan">Sedan</button>
               <button data-body="hatchback">Hatchback</button>
               <button data-body="suv">SUV</button>
+              <button data-body="minibus">Minibüs</button>
+              <button data-body="kamyon">Kamyon</button>
+              <button data-body="otobus">Otobüs</button>
+              <button data-body="tir">Tır</button>
             </div>
           </section>
 
@@ -169,15 +173,16 @@
 
       <!-- ============ KAPORTA DURUMU ============ -->
       <div class="view panels hidden" id="view-kaporta">
-        <section class="card panel-diagram-card">
-          <div class="card-head">
-            <span class="card-title">Üstten Görünüm</span>
-            <span class="card-count" id="panel-hint"></span>
-          </div>
-          <div class="panel-legend" id="panel-legend"></div>
-          <div class="panel-svg-wrap" id="panel-svg-wrap"></div>
-        </section>
-        <aside class="pcol">
+        <section class="scene-slot" id="slot-kaporta"></section>
+        <aside class="pcol" id="kaporta-right">
+          <section class="card panel-diagram-card">
+            <div class="card-head">
+              <span class="card-title">Kaporta Şeması</span>
+              <span class="card-count" id="panel-hint"></span>
+            </div>
+            <div class="panel-legend" id="panel-legend"></div>
+            <div class="panel-svg-wrap" id="panel-svg-wrap"></div>
+          </section>
           <section class="card grow">
             <div class="card-head">
               <span class="card-title">Parça Listesi</span>
@@ -205,16 +210,6 @@
           <span class="paint-label">Parçalar</span>
           <div class="parts-btns" id="parts-btns" role="group" aria-label="Açılır parçalar"></div>
           <button class="parts-all" id="parts-all" type="button">Tümünü aç</button>
-        </div>
-        <div class="paint-picker" id="paint-picker">
-          <span class="paint-label">Renk</span>
-          <div class="paint-target" id="paint-target" role="group" aria-label="Boyanacak parça">
-            <button data-zone="hood" class="active">Kaput</button>
-            <button data-zone="doors">Kapılar</button>
-            <button data-zone="trunk">Bagaj</button>
-            <button data-zone="body">Gövde</button>
-          </div>
-          <div class="paint-swatches" id="paint-swatches" role="group" aria-label="Renk seç"></div>
         </div>
       </div>
       <button class="colabel" id="lab-motor" data-region="motor">

@@ -13,7 +13,7 @@
  *  - `regions` : bakım bölgeleri (motor/fren/amortisör) — vurgu için ayrı malzeme.
  */
 export type RegionId = "motor" | "fren" | "amortisor";
-export type BodyType = "sedan" | "hatchback" | "suv";
+export type BodyType = "sedan" | "hatchback" | "suv" | "minibus" | "kamyon" | "otobus" | "tir";
 export type PaintZone = "hood" | "doors" | "trunk" | "body";
 export type OpenablePart = "hood" | "trunk" | "doorFL" | "doorFR" | "doorRL" | "doorRR";
 
@@ -127,6 +127,88 @@ export const BODY_CONFIGS: Record<BodyType, BodyCfg> = {
     beltY: 1.08,
     engine: { x0: 1.38, x1: 1.98, y0: 0.62, y1: 1.0, halfZ: 0.4 },
     lift: 0.12,
+  },
+  minibus: {
+    label: "Minibüs",
+    profile: [
+      [-2.6, 0.5, 0.88], [-2.6, 1.82, 0.88], [-2.4, 1.95, 0.72], [0.8, 1.95, 0.72],
+      [1.4, 1.25, 0.84], [2.2, 1.1, 0.84], [2.4, 0.85, 0.8], [2.4, 0.5, 0.86],
+    ],
+    cross2: [1, 2, 3, 4, 6],
+    cross3: [0, 7],
+    hoodIdx: [4, 5, 6],
+    tailIdx: [2, 1, 0],
+    frontX: 1.6, rearX: -1.7,
+    wheelR: 0.38, wheelY: 0.38, archR: 0.48, sillY: 0.36,
+    bodyHalfW: 0.88, glassZ: 0.74,
+    window: [[-2.3, 1.25], [-2.35, 1.9], [0.75, 1.9], [1.32, 1.28]],
+    pillars: [0.1, -0.8, -1.6],
+    doorSeams: [0.1, -0.9],
+    beltY: 1.15,
+    engine: { x0: 1.45, x1: 2.1, y0: 0.58, y1: 0.98, halfZ: 0.42 },
+    lift: 0.1,
+  },
+  kamyon: {
+    label: "Kamyon",
+    profile: [
+      [-3.0, 0.6, 0.96], [-3.0, 1.9, 0.96], [-1.0, 1.9, 0.96], [-1.0, 0.7, 0.96],
+      [0.6, 0.7, 0.9], [0.6, 2.1, 0.84], [1.6, 2.1, 0.84], [2.1, 1.3, 0.88],
+      [2.3, 0.6, 0.92],
+    ],
+    cross2: [1, 2, 5, 6, 7],
+    cross3: [0, 8],
+    hoodIdx: [6, 7, 8],
+    tailIdx: [2, 1, 0],
+    frontX: 1.6, rearX: -2.0,
+    wheelR: 0.46, wheelY: 0.46, archR: 0.58, sillY: 0.44,
+    bodyHalfW: 0.96, glassZ: 0.8,
+    window: [[0.65, 1.35], [0.65, 2.05], [1.55, 2.05], [2.02, 1.35]],
+    pillars: [1.1],
+    doorSeams: [1.0, 0.6],
+    beltY: 1.28,
+    engine: { x0: 1.5, x1: 2.15, y0: 0.65, y1: 1.1, halfZ: 0.45 },
+    lift: 0.2,
+  },
+  otobus: {
+    label: "Büyük Otobüs",
+    profile: [
+      [-3.8, 0.55, 1.0], [-3.8, 2.3, 1.0], [-3.6, 2.45, 0.85], [1.8, 2.45, 0.85],
+      [2.7, 2.3, 0.85], [3.2, 1.4, 0.94], [3.3, 0.55, 0.98],
+    ],
+    cross2: [1, 2, 3, 4, 5],
+    cross3: [0, 6],
+    hoodIdx: [4, 5, 6],
+    tailIdx: [2, 1, 0],
+    frontX: 2.3, rearX: -2.6,
+    wheelR: 0.48, wheelY: 0.48, archR: 0.6, sillY: 0.42,
+    bodyHalfW: 1.0, glassZ: 0.86,
+    window: [[-3.5, 1.35], [-3.5, 2.4], [1.75, 2.4], [2.65, 2.25]],
+    pillars: [1.0, 0.0, -1.0, -2.0],
+    doorSeams: [1.8, -1.5],
+    beltY: 1.3,
+    engine: { x0: -3.6, x1: -2.8, y0: 0.6, y1: 1.1, halfZ: 0.48 },
+    lift: 0.25,
+  },
+  tir: {
+    label: "Tır",
+    profile: [
+      [-4.2, 0.65, 1.05], [-4.2, 2.35, 1.05], [-0.8, 2.35, 1.05], [-0.8, 0.75, 1.05],
+      [0.4, 0.75, 0.95], [0.4, 2.4, 0.92], [1.6, 2.4, 0.92], [2.2, 1.45, 0.96],
+      [2.4, 0.65, 1.0],
+    ],
+    cross2: [1, 2, 5, 6, 7],
+    cross3: [0, 8],
+    hoodIdx: [6, 7, 8],
+    tailIdx: [2, 1, 0],
+    frontX: 1.7, rearX: -2.8,
+    wheelR: 0.5, wheelY: 0.5, archR: 0.62, sillY: 0.46,
+    bodyHalfW: 1.05, glassZ: 0.88,
+    window: [[0.45, 1.45], [0.45, 2.35], [1.55, 2.35], [2.12, 1.48]],
+    pillars: [1.0],
+    doorSeams: [0.9, 0.4],
+    beltY: 1.35,
+    engine: { x0: 1.55, x1: 2.25, y0: 0.7, y1: 1.2, halfZ: 0.48 },
+    lift: 0.22,
   },
 };
 
@@ -576,10 +658,10 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
       ], 3, true);
     }
   }
-  buildDoor("doorFL", "Sol Ön Kapı", doorX[0], doorX[1], 1, true);
-  buildDoor("doorFR", "Sağ Ön Kapı", doorX[0], doorX[1], -1, true);
-  buildDoor("doorRL", "Sol Arka Kapı", doorX[1], doorX[2], 1, false);
-  buildDoor("doorRR", "Sağ Arka Kapı", doorX[1], doorX[2], -1, false);
+  buildDoor("doorFL", "Sol Ön Kapı", doorX[0], doorX[1], -1, true);
+  buildDoor("doorFR", "Sağ Ön Kapı", doorX[0], doorX[1], 1, true);
+  buildDoor("doorRL", "Sol Arka Kapı", doorX[1], doorX[2], -1, false);
+  buildDoor("doorRR", "Sağ Arka Kapı", doorX[1], doorX[2], 1, false);
 
   // ================= İÇ MEKÂN (detaylı) =================
 
@@ -623,10 +705,10 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
       S.add([cx + 0.14, cfg.sillY + 0.05, cz], [cx + 0.14, y0, cz], 3);
     }
   }
-  seat(0.1, 0.34, true);
-  seat(0.1, -0.34, true);
-  seat(-0.72, 0.34, false);
+  seat(0.1, -0.34, true);  // Sürücü koltuğu (Sol - LHD)
+  seat(0.1, 0.34, true);   // Yolcu koltuğu (Sağ - LHD)
   seat(-0.72, -0.34, false);
+  seat(-0.72, 0.34, false);
   // arka koltuk ortak oturağı
   S.add([-0.72, 0.545 + L, -0.14], [-0.72, 0.545 + L, 0.14], 3);
 
@@ -642,10 +724,10 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     ], 2, true);
     S.add([dashX + 0.08, dy0, dz], [dashX - 0.02, dy1, dz], 3);
     S.add([dashX + 0.08, dy0, -dz], [dashX - 0.02, dy1, -dz], 3);
-    // gösterge yuvası (sürücü tarafı, +z)
-    S.box(dashX - 0.06, dy1 - 0.14, 0.18, dashX + 0.03, dy1 + 0.02, 0.5, 3);
-    S.circle(dashX - 0.03, dy1 - 0.06, 0.26, 0.055, "yz", 12, 3);
-    S.circle(dashX - 0.03, dy1 - 0.06, 0.42, 0.055, "yz", 12, 3);
+    // gösterge yuvası (sürücü tarafı, -z LHD)
+    S.box(dashX - 0.06, dy1 - 0.14, -0.5, dashX + 0.03, dy1 + 0.02, -0.18, 3);
+    S.circle(dashX - 0.03, dy1 - 0.06, -0.26, 0.055, "yz", 12, 3);
+    S.circle(dashX - 0.03, dy1 - 0.06, -0.42, 0.055, "yz", 12, 3);
     // orta konsol ekranı
     S.poly([
       [dashX - 0.01, dy1 - 0.04, -0.13], [dashX - 0.01, dy1 - 0.04, 0.13],
@@ -659,16 +741,16 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     for (let i = -1; i <= 1; i++) {
       S.circle(dashX + 0.04, dy0 + 0.09, i * 0.1, 0.022, "yz", 8, 3);
     }
-    // torpido gözü (yolcu tarafı, −z)
+    // torpido gözü (yolcu tarafı, +z LHD)
     S.poly([
-      [dashX + 0.03, dy0 + 0.04, -0.22], [dashX + 0.03, dy0 + 0.04, -0.56],
-      [dashX + 0.01, dy1 - 0.14, -0.56], [dashX + 0.01, dy1 - 0.14, -0.22],
+      [dashX + 0.03, dy0 + 0.04, 0.22], [dashX + 0.03, dy0 + 0.04, 0.56],
+      [dashX + 0.01, dy1 - 0.14, 0.56], [dashX + 0.01, dy1 - 0.14, 0.22],
     ], 3, true);
   }
 
   // ---- Direksiyon + kolon + pedallar ----
   {
-    const C: P = [0.72, 0.88 + L, 0.34];
+    const C: P = [0.72, 0.88 + L, -0.34];
     const r = 0.135;
     const u: P = [0, 0, 1];
     const v: P = [0.41, -0.912, 0];
@@ -690,13 +772,13 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     const outer = rim(r * 0.95), inner = rim(r * 0.26);
     for (const i of [0, 5, 9]) S.add(inner[i], outer[i], 3);
     // kolon + sinyal kolları
-    S.add(C, [0.95, 0.8 + L, 0.34], 3);
+    S.add(C, [0.95, 0.8 + L, -0.34], 3);
     for (const s of [-1, 1]) {
-      S.add([0.85, 0.86 + L, 0.34], [0.83, 0.85 + L, 0.34 + s * 0.16], 3);
+      S.add([0.85, 0.86 + L, -0.34], [0.83, 0.85 + L, -0.34 + s * 0.16], 3);
     }
     // pedallar
     for (let i = 0; i < 3; i++) {
-      const pz = 0.14 + i * 0.11;
+      const pz = -0.34 + (i - 1) * 0.11;
       S.poly([
         [1.02, 0.44 + L, pz - 0.03], [1.02, 0.44 + L, pz + 0.03],
         [1.07, 0.52 + L, pz + 0.03], [1.07, 0.52 + L, pz - 0.03],
