@@ -10,6 +10,8 @@ import org.jetbrains.exposed.sql.Table
 
 object Vehicles : Table("vehicles") {
     val plate = varchar("plate", 20)
+    /** İşletme aramasında kullanılan kısa müşteri kodu (örn. "MST-001") — plaka gibi araca değil, o anki müşteriye bağlıdır. */
+    val customerId = varchar("customer_id", 20).uniqueIndex()
     val displayPlate = varchar("display_plate", 20)
     val model = varchar("model", 80)
     val year = integer("year")

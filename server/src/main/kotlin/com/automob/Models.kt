@@ -31,6 +31,18 @@ data class Vehicle(
     val lastServiceKm: Int,
     val owner: String,
     val phone: String,
+    val customerId: String,
+)
+
+/** Müşteri arama sonucu satırı — araç dosyasının tam ayrıntısı olmadan liste görünümü için. */
+@Serializable
+data class CustomerSummary(
+    val customerId: String,
+    val owner: String,
+    val phone: String,
+    val plate: String,
+    val model: String,
+    val km: Int,
 )
 
 @Serializable

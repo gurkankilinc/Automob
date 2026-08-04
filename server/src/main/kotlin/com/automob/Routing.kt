@@ -37,6 +37,20 @@ fun Application.configureRouting() {
         staticFiles("/uploads", uploadsDir)
 
         authenticate("auth-jwt") {
+            get("/api/customers") {
+                if (!call.requireIsletme()) return@get
+                val q = call.request.queryParameters["q"]
+                call.respond(Repository.customers(q))
+            }
+
+            get("/api/customers/{customerId}") {
+                if (!call.requireIsletme()) return@get
+                val customerId = call.parameters["customerId"]!!
+                val vehicle = Repository.vehicleByCustomerId(customerId)
+                    ?: return@get call.respond(HttpStatusCode.NotFound, ApiError("Müşteri bulunamadı: $customerId"))
+                call.respond(vehicle)
+            }
+
             route("/api/vehicles/{plate}") {
                 get {
                     val plate = call.parameters["plate"]!!
@@ -142,6 +156,17 @@ fun Application.configureRouting() {
             }
         }
     }
+}
+
+/**
+ * Müşteri listesi/arama diğer müşterilerin ad+telefon bilgisini taşıdığından yalnızca
+ * isletme rolüne açık — musteri kendi aracı dışında hiçbir kayda erişememeli.
+ */
+private suspend fun ApplicationCall.requireIsletme(): Boolean {
+    val principal = principal<JWTPrincipal>()!!
+    if (principal.payload.getClaim("role").asString() == "isletme") return true
+    respond(HttpStatusCode.Forbidden, ApiError("Bu işlem için işletme yetkisi gerekir."))
+    return false
 }
 
 /**

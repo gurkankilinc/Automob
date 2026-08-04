@@ -21,6 +21,16 @@ export interface ApiVehicle {
   lastServiceKm: number;
   owner: string;
   phone: string;
+  customerId: string;
+}
+
+export interface ApiCustomerSummary {
+  customerId: string;
+  owner: string;
+  phone: string;
+  plate: string;
+  model: string;
+  km: number;
 }
 
 export interface ApiCatalogItem {
@@ -142,6 +152,12 @@ export const api = {
   getVehicle: (plate: string) => j<ApiVehicle>(`/vehicles/${encodeURIComponent(plate)}`),
   getRecords: (plate: string) => j<ApiRecord[]>(`/vehicles/${encodeURIComponent(plate)}/records`),
   getReminders: (plate: string) => j<ApiReminder[]>(`/vehicles/${encodeURIComponent(plate)}/reminders`),
+
+  /** Müşteri arama listesi (yalnızca işletme rolü) — q boşsa tüm müşteriler döner. */
+  searchCustomers: (q: string) =>
+    j<ApiCustomerSummary[]>(`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  getCustomerVehicle: (customerId: string) =>
+    j<ApiVehicle>(`/customers/${encodeURIComponent(customerId)}`),
 
   createRecord: (plate: string, body: { km: number; items: ApiRecordItem[] }) =>
     j<ApiRecord>(`/vehicles/${encodeURIComponent(plate)}/records`, {

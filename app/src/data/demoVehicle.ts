@@ -3,6 +3,7 @@ import type { BodyType } from "../scene/carWireframe";
 /** Faz 1 demo aracı — gerçek üründe araç dosyasından gelir. */
 export const demoVehicle = {
   plate: "34 ABC 123",
+  customerId: "MST-001",
   model: "Renault Megane",
   year: 2019,
   vin: "VF1···847",

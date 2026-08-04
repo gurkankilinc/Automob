@@ -12,7 +12,7 @@ bilerek ilerlemek.
 ## 1. Bugünkü şema
 
 ```
-vehicles(plate PK, display_plate, model, year, vin, body_type,
+vehicles(plate PK, customer_id UNIQUE, display_plate, model, year, vin, body_type,
          km, next_service_km, last_service_km, owner, phone, owner_email)
    │
    ├─< service_records(id PK, vehicle_plate FK, date, date_iso, km)
@@ -69,6 +69,13 @@ Bu, sonradan eklenmesi en pahalı şey — her sorguya girer.
 anlık görüntüsü; katalog fiyatı sonradan değişince geçmiş fatura değişmemeli.
 
 ### 2.3 Gerçek veriyle üretime çıkmadan önce
+
+**`customer_id` geçici bir katman.** İşletme "Müşteriler" arama özelliği için
+`vehicles.customer_id` (örn. `MST-001`) eklendi — ama bu, aşağıdaki "sahiplik
+zayıf ve tarihsiz" sorununu çözmüyor: hâlâ bire bir müşteri↔araç varsayımı var,
+bir müşterinin birden fazla aracı veya bir aracın sahip değişikliği bugünkü
+şemayla ifade edilemiyor. Hedef şemada bu, `vehicle_owners`'ın doğal bir
+sonucu (`user_id` zaten müşteri kimliği) — ayrı bir `customers` tablosu gerekmez.
 
 **Plaka birincil anahtar.** `vehicles.plate` PK ve dört çocuk tablo ona
 `ON UPDATE RESTRICT` ile bağlı. Yani plaka değişikliği (devir, yeni tescil,

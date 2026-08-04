@@ -138,6 +138,7 @@ button { font-family: inherit; }
 .view { height: 100%; display: grid; gap: 14px; padding: 14px; }
 .view.hidden { display: none; }
 .view.service { grid-template-columns: 270px minmax(0, 1fr) 310px; }
+.view.customers { grid-template-columns: minmax(0, 1fr); justify-content: center; }
 .view.customer { grid-template-columns: minmax(0, 1fr) 356px; }
 .view.panels { grid-template-columns: minmax(0, 1fr) 320px; }
 
@@ -749,11 +750,38 @@ button { font-family: inherit; }
   .scene-toolbar { gap: 6px; }
 }
 
+/* ---------- Müşteriler (arama) ---------- */
+.customer-search-card { max-width: 640px; margin: 0 auto; width: 100%; }
+.customer-search-input {
+  width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 11px 13px; color: var(--text); font-family: var(--font-body); font-size: 15px;
+  margin-bottom: 12px;
+}
+.customer-search-input::placeholder { color: var(--muted-2); }
+.customer-search-input:focus-visible { outline: 2px solid var(--schema); outline-offset: -2px; }
+.customer-list { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.customer-row {
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+  background: var(--card-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 10px 13px; cursor: pointer; color: var(--text); font-family: var(--font-body);
+  transition: border-color 0.12s, background 0.12s;
+}
+.customer-row:hover { border-color: var(--schema); }
+.customer-row:focus-visible { outline: 2px solid var(--schema); outline-offset: 1px; }
+.customer-row .avatar { width: 36px; height: 36px; font-size: 15px; border-radius: 9px; }
+.customer-row .cr-body { flex: 1; min-width: 0; }
+.customer-row .cr-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.customer-row .cr-name { font-weight: 600; font-size: 14.5px; }
+.customer-row .cr-id { font-family: var(--font-data); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.customer-row .cr-sub { color: var(--muted); font-size: 13px; margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+.customer-row .cr-sub .plate { font-size: 12px; padding: 2px 7px; }
+.customer-empty { color: var(--muted-2); font-size: 13.5px; text-align: center; padding: 26px 8px; border: 1px dashed var(--line); border-radius: var(--r-sm); }
+
 /* ---------- Dar ekran ---------- */
 @media (max-width: 900px) {
   body { overflow: auto; }
   .app { height: auto; min-height: 100svh; }
-  .view.service, .view.customer, .view.panels { grid-template-columns: 1fr; height: auto; }
+  .view.service, .view.customers, .view.customer, .view.panels { grid-template-columns: 1fr; height: auto; }
   .pcol { overflow: visible; }
   .card.grow .region-list, .card.grow .timeline, #cart-list { overflow: visible; }
   .scene-slot { height: 380px; }

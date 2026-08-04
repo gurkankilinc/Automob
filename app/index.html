@@ -65,6 +65,7 @@
       </div>
       <nav class="tabs" aria-label="Görünümler">
         <button class="tab active" data-tab="servis">Servis Paneli</button>
+        <button class="tab" data-tab="musteriler">Müşteriler</button>
         <button class="tab" data-tab="musteri">Müşteri Görünümü</button>
         <button class="tab" data-tab="kaporta">Kaporta Durumu</button>
       </nav>
@@ -145,6 +146,24 @@
             <button class="cta block" id="save-btn" type="button">KAYDET VE RAPORLA</button>
           </section>
         </aside>
+      </div>
+
+      <!-- ============ MÜŞTERİLER (arama) ============ -->
+      <div class="view customers hidden" id="view-musteriler">
+        <section class="card customer-search-card grow">
+          <div class="card-head">
+            <span class="card-title">Müşteri Ara</span>
+            <span class="card-count" id="customer-count"></span>
+          </div>
+          <input
+            class="customer-search-input"
+            id="customer-search-input"
+            type="search"
+            placeholder="Müşteri ID, ad veya plaka (örn. MST-003)"
+            autocomplete="off"
+          />
+          <div class="customer-list" id="customer-list"></div>
+        </section>
       </div>
 
       <!-- ============ MÜŞTERİ GÖRÜNÜMÜ ============ -->

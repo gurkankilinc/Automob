@@ -22,6 +22,7 @@ import { computeReminders, type Reminder } from "./domain/reminders";
 import { api, ApiHttpError, type ApiReminder } from "./api/client";
 import { initServicePanel } from "./ui/servicePanel";
 import { initCustomerView } from "./ui/customerView";
+import { initCustomerSearch } from "./ui/customerSearch";
 import { initPanelDiagram } from "./ui/panelDiagram";
 import { PANEL_STATE_ORDER, PANEL_STATE_LABEL } from "./data/bodyPanels";
 import type { PanelState } from "./data/bodyPanels";
@@ -111,20 +112,15 @@ function initLoginScreen(): void {
 
 // ---------- Backend veri yükleme ----------
 
-/** Açılışta backend'den veriyi çekip yerel tohum nesnelerini yerinde günceller. */
-async function bootstrap(): Promise<void> {
-  apiOnline = await api.ping();
-  setBadge(apiOnline);
-  if (!apiOnline) return;
+/** Bir aracın dosyasını (veri + geçmiş + kaporta) backend'den çekip yerel duruma yazar. */
+async function loadVehicleByPlate(plate: string): Promise<boolean> {
+  if (!apiOnline) return false;
   try {
-    const [svc, veh, recs, cat, panels] = await Promise.all([
-      api.getService(),
-      api.getVehicle(demoVehicle.plate),
-      api.getRecords(demoVehicle.plate),
-      api.getCatalog(),
-      api.getPanels(demoVehicle.plate),
+    const [veh, recs, panels] = await Promise.all([
+      api.getVehicle(plate),
+      api.getRecords(plate),
+      api.getPanels(plate),
     ]);
-    Object.assign(service, svc);
     Object.assign(demoVehicle, veh);
     store.replacePanelStatus(panels.map((p) => ({
       panelId: p.panelId,
@@ -142,6 +138,21 @@ async function bootstrap(): Promise<void> {
         photos: it.photos ?? undefined,
       })),
     })));
+    return true;
+  } catch (e) {
+    console.warn("Araç verisi alınamadı:", e);
+    return false;
+  }
+}
+
+/** Açılışta backend'den statik yapılandırmayı (servis, katalog) ve ilk aracı yükler. */
+async function bootstrap(): Promise<void> {
+  apiOnline = await api.ping();
+  setBadge(apiOnline);
+  if (!apiOnline) return;
+  try {
+    const [svc, cat] = await Promise.all([api.getService(), api.getCatalog()]);
+    Object.assign(service, svc);
     for (const [region, items] of Object.entries(cat.regions)) {
       (CATALOG as Record<string, CatalogItem[]>)[region] = items.map((i) => ({
         title: i.title,
@@ -154,6 +165,11 @@ async function bootstrap(): Promise<void> {
     apiOnline = false;
     setBadge(false);
     console.warn("Backend verisi alınamadı, yerel tohuma dönüldü:", e);
+    return;
+  }
+  if (!(await loadVehicleByPlate(demoVehicle.plate))) {
+    apiOnline = false;
+    setBadge(false);
   }
 }
 
@@ -380,22 +396,25 @@ async function start(): Promise<void> {
   // işletmeye özeldir; backend zaten yazma isteklerini reddeder, bu istemci tarafı
   // aynı kuralın kullanıcı deneyimi karşılığıdır.
   const isMusteri = auth.user?.role === "musteri";
-  type Tab = "servis" | "musteri" | "kaporta";
+  type Tab = "servis" | "musteriler" | "musteri" | "kaporta";
   const tabButtons = [...document.querySelectorAll<HTMLButtonElement>(".tab")];
   if (isMusteri) {
     document.querySelector('.tab[data-tab="servis"]')!.classList.add("hidden");
+    document.querySelector('.tab[data-tab="musteriler"]')!.classList.add("hidden");
   }
 
   function parseTab(hash: string): Tab {
     if (hash === "#kaporta") return "kaporta";
     if (hash === "#musteri") return "musteri";
+    if (hash === "#musteriler") return "musteriler";
     return "servis";
   }
 
   function switchTab(tab: Tab): void {
-    const effective: Tab = isMusteri && tab === "servis" ? "musteri" : tab;
+    const effective: Tab = isMusteri && (tab === "servis" || tab === "musteriler") ? "musteri" : tab;
     for (const b of tabButtons) b.classList.toggle("active", b.dataset.tab === effective);
     document.getElementById("view-servis")!.classList.toggle("hidden", effective !== "servis");
+    document.getElementById("view-musteriler")!.classList.toggle("hidden", effective !== "musteriler");
     document.getElementById("view-musteri")!.classList.toggle("hidden", effective !== "musteri");
     document.getElementById("view-kaporta")!.classList.toggle("hidden", effective !== "kaporta");
     if (effective === "servis" || effective === "musteri") {
@@ -473,6 +492,47 @@ async function start(): Promise<void> {
       syncPartButtons();
     },
   });
+
+  // ---------- Müşteriler (arama) — yalnızca işletme rolü ----------
+  // Bir müşteri seçilince tüm panolar (3D şema, servis geçmişi, kaporta durumu,
+  // hatırlatmalar) o müşterinin aracına geçer; önceki müşterinin devam eden
+  // sepeti (henüz kaydedilmemiş işlem/öneri) yeni müşteriye taşınmasın diye temizlenir.
+  async function switchToCustomer(customerId: string): Promise<void> {
+    if (!apiOnline) {
+      showToast("Müşteri seçimi için backend bağlantısı gerekli.");
+      return;
+    }
+    let plate: string;
+    try {
+      plate = (await api.getCustomerVehicle(customerId)).plate;
+    } catch {
+      showToast("Müşteri bilgisi alınamadı.");
+      return;
+    }
+    store.cart = [];
+    hidden.clear();
+    scene.setAllParts(false);
+    syncPartButtons();
+    if (!(await loadVehicleByPlate(plate))) {
+      showToast("Araç verisi yüklenemedi.");
+      return;
+    }
+    scene.setBodyType(demoVehicle.bodyType);
+    setActiveBody(demoVehicle.bodyType);
+    renderMeta(demoVehicle.bodyType);
+    document.getElementById("plate")!.textContent = demoVehicle.plate;
+    await refreshReminders();
+    syncScene();
+    switchTab("servis");
+    showToast(`${demoVehicle.owner} yüklendi — ${demoVehicle.plate}`);
+  }
+
+  if (!isMusteri) {
+    initCustomerSearch({
+      isOnline: () => apiOnline,
+      onSelect: (customerId) => void switchToCustomer(customerId),
+    });
+  }
 
   const legendEl = document.getElementById("panel-legend")!;
   legendEl.innerHTML = PANEL_STATE_ORDER.map((s: PanelState) => {

@@ -31,6 +31,8 @@ Windows'ta JDK yolu `gradle.properties` içinde `org.gradle.java.home` ile sabit
 | GET  | `/api/health` | Sağlık kontrolü |
 | GET  | `/api/service` | Servis işletmesi bilgisi (rapor başlığı) |
 | GET  | `/api/catalog` | Bölge → bakım kalemi kataloğu + etiketler |
+| GET  | `/api/customers` | Müşteri arama listesi (`?q=` — ID/ad/plaka alt dizesi) — yalnızca `isletme` |
+| GET  | `/api/customers/{customerId}` | Müşteri ID'sinden araç dosyası — yalnızca `isletme` |
 | GET  | `/api/vehicles/{plate}` | Araç dosyası |
 | GET  | `/api/vehicles/{plate}/records` | Servis geçmişi (yeniden eskiye) |
 | GET  | `/api/vehicles/{plate}/suggestions` | Bekleyen öneriler |

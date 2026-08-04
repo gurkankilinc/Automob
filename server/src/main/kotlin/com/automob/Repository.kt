@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.time.Instant
@@ -80,10 +81,37 @@ object Repository {
         lastServiceKm = row[Vehicles.lastServiceKm],
         owner = row[Vehicles.owner],
         phone = row[Vehicles.phone],
+        customerId = row[Vehicles.customerId],
     )
 
     fun vehicle(plate: String): Vehicle? = transaction {
         Vehicles.select { Vehicles.plate eq norm(plate) }.map(::rowToVehicle).firstOrNull()
+    }
+
+    fun vehicleByCustomerId(customerId: String): Vehicle? = transaction {
+        Vehicles.select { Vehicles.customerId eq customerId.trim() }.map(::rowToVehicle).firstOrNull()
+    }
+
+    /**
+     * Müşteri arama listesi — müşteri ID, isim veya plakada geçen alt dizeyle eşleşir
+     * (büyük/küçük harf duyarsız). Sorgu boşsa tüm müşteriler müşteri ID sırasıyla döner.
+     */
+    fun customers(query: String?): List<CustomerSummary> = transaction {
+        val q = query?.trim()?.lowercase()
+        Vehicles.selectAll()
+            .orderBy(Vehicles.customerId, SortOrder.ASC)
+            .map {
+                CustomerSummary(
+                    customerId = it[Vehicles.customerId], owner = it[Vehicles.owner], phone = it[Vehicles.phone],
+                    plate = it[Vehicles.displayPlate], model = it[Vehicles.model], km = it[Vehicles.km],
+                )
+            }
+            .filter {
+                q.isNullOrEmpty() ||
+                    it.customerId.lowercase().contains(q) ||
+                    it.owner.lowercase().contains(q) ||
+                    it.plate.lowercase().replace(" ", "").contains(q.replace(" ", ""))
+            }
     }
 
     /** Aracın sahibi müşteri e-postası — yetkilendirme kontrolünde kullanılır, API'ye dönmez. */
