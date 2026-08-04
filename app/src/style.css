@@ -6,6 +6,12 @@
   --fault: #c67a17;
   --ok: #4f8f57;
 
+  /* Kaporta panelleri durum renkleri */
+  --panel-degisen: #ef4444;
+  --panel-boyali: #d2b48c;
+  --panel-lokal: #f59e0b;
+  --panel-orijinal: #8b92a2;
+
   --font-display: "Chakra Petch", "Bahnschrift", system-ui, sans-serif;
   --font-body: "Exo 2", "Segoe UI", system-ui, sans-serif;
   --font-data: "JetBrains Mono", Consolas, monospace;
@@ -140,9 +146,9 @@ button { font-family: inherit; }
 .view.service { grid-template-columns: 270px minmax(0, 1fr) 310px; }
 .view.customers { grid-template-columns: minmax(0, 1fr); justify-content: center; }
 .view.customer { grid-template-columns: minmax(0, 1fr) 356px; }
-.view.panels { grid-template-columns: minmax(0, 1fr) 320px; }
+.view.panels { grid-template-columns: minmax(0, 1fr) 350px; }
 
-.pcol { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: hidden; }
+.pcol { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; padding-right: 2px; }
 
 /* ---------- Kart ---------- */
 .card {
@@ -151,9 +157,12 @@ button { font-family: inherit; }
   border-radius: var(--r);
   padding: 15px;
   box-shadow: var(--shadow);
+  flex-shrink: 0;
 }
-.card.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.card.grow .region-list, .card.grow .timeline { overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.card.grow { flex: 1 0 auto; min-height: 240px; display: flex; flex-direction: column; overflow: hidden; }
+.card.grow .region-list { flex: 1; min-height: 160px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.card.grow .timeline { flex: 1; min-height: 240px; max-height: 480px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.card.grow .panel-list { flex: 1; min-height: 220px; max-height: 450px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .card-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
@@ -192,7 +201,7 @@ button { font-family: inherit; }
   color: var(--muted-2); font-weight: 600; margin-bottom: 8px;
 }
 .reminder-list { list-style: none; margin: 0; padding: 0; }
-.reminder-list.full { max-height: 260px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.reminder-list.full { max-height: 180px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
 .reminder-row {
   display: flex; flex-direction: column; gap: 4px;
   padding: 9px 8px; border-radius: var(--r-sm); font-size: 13.5px;
@@ -218,10 +227,10 @@ button { font-family: inherit; }
 .reminder-row.status-guncel .chip { color: var(--ok); border-color: rgba(79,143,87,0.35); background: rgba(79,143,87,0.08); }
 
 /* ---------- Segmented (kasa tipi) ---------- */
-.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
 .seg button {
   background: none; border: none; color: var(--muted); cursor: pointer;
-  font-size: 14px; padding: 8px 4px; border-radius: 7px; letter-spacing: 0.02em;
+  font-size: 12px; padding: 7px 3px; border-radius: 7px; letter-spacing: 0.01em; white-space: nowrap; text-align: center;
   transition: color 0.15s, background 0.15s;
 }
 .seg button:hover { color: var(--text); }

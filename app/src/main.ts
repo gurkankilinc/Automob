@@ -10,7 +10,7 @@ import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
 
 import { AutomobScene, type ViewName } from "./scene/AutomobScene";
-import type { BodyType, RegionId, PaintZone, OpenablePart } from "./scene/carWireframe";
+import type { BodyType, RegionId, OpenablePart } from "./scene/carWireframe";
 import { BODY_CONFIGS } from "./scene/carWireframe";
 import { demoVehicle } from "./data/demoVehicle";
 import { service } from "./data/service";
@@ -346,55 +346,7 @@ async function start(): Promise<void> {
   }
   scene.onViewInterrupted = () => setActiveCam("orbit");
 
-  // ---------- Boya rengi (kaporta özelleştirme) ----------
-  // Kozmetik tercih, backend verisiyle ilişkili değil — yine de düzenleme yalnızca
-  // işletmeye açık, diğer tüm "değiştir" kontrolleriyle tutarlı olsun diye.
-  const PAINT_COLORS: { hex: number; name: string }[] = [
-    { hex: 0xf5c93e, name: "Sarı" }, { hex: 0xf2f0e8, name: "Beyaz" },
-    { hex: 0x3a3f47, name: "Grafit" }, { hex: 0x9aa0a8, name: "Gümüş" },
-    { hex: 0xc0392b, name: "Kırmızı" }, { hex: 0x2c5aa0, name: "Lacivert" },
-    { hex: 0x3f7d4f, name: "Yeşil" }, { hex: 0xd9772e, name: "Turuncu" },
-    { hex: 0x7d5ba6, name: "Mor" }, { hex: 0x2f9e9e, name: "Turkuaz" },
-  ];
-  if (auth.user?.role === "musteri") {
-    document.getElementById("paint-picker")!.classList.add("hidden");
-  } else {
-    const targetBtns = [...document.querySelectorAll<HTMLButtonElement>("#paint-target button")];
-    const swatchWrap = document.getElementById("paint-swatches")!;
-    const zoneColor = new Map<PaintZone, number>(targetBtns.map((b) => [b.dataset.zone as PaintZone, PAINT_COLORS[0].hex]));
-    let activeZone: PaintZone = "hood";
-
-    function renderSwatches(): void {
-      swatchWrap.innerHTML = "";
-      for (const c of PAINT_COLORS) {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.style.background = `#${c.hex.toString(16).padStart(6, "0")}`;
-        b.title = c.name;
-        b.setAttribute("aria-label", c.name);
-        b.classList.toggle("active", zoneColor.get(activeZone) === c.hex);
-        b.addEventListener("click", () => {
-          zoneColor.set(activeZone, c.hex);
-          scene.setPaintColor(activeZone, c.hex);
-          renderSwatches();
-        });
-        swatchWrap.appendChild(b);
-      }
-    }
-    for (const b of targetBtns) {
-      b.addEventListener("click", () => {
-        activeZone = b.dataset.zone as PaintZone;
-        for (const x of targetBtns) x.classList.toggle("active", x === b);
-        renderSwatches();
-      });
-    }
-    renderSwatches();
-  }
-
   // ---------- Görünümler (sekme + hash) ----------
-  // Müşteri rolü yalnızca kendi görünümünü kullanır — servis paneli (veri girişi)
-  // işletmeye özeldir; backend zaten yazma isteklerini reddeder, bu istemci tarafı
-  // aynı kuralın kullanıcı deneyimi karşılığıdır.
   const isMusteri = auth.user?.role === "musteri";
   type Tab = "servis" | "musteriler" | "musteri" | "kaporta";
   const tabButtons = [...document.querySelectorAll<HTMLButtonElement>(".tab")];
@@ -417,8 +369,9 @@ async function start(): Promise<void> {
     document.getElementById("view-musteriler")!.classList.toggle("hidden", effective !== "musteriler");
     document.getElementById("view-musteri")!.classList.toggle("hidden", effective !== "musteri");
     document.getElementById("view-kaporta")!.classList.toggle("hidden", effective !== "kaporta");
-    if (effective === "servis" || effective === "musteri") {
-      const slot = document.getElementById(effective === "servis" ? "slot-servis" : "slot-musteri")!;
+    if (effective === "servis" || effective === "musteri" || effective === "kaporta") {
+      const slotId = effective === "servis" ? "slot-servis" : effective === "musteri" ? "slot-musteri" : "slot-kaporta";
+      const slot = document.getElementById(slotId)!;
       slot.appendChild(viewport); // tek sahne örneği görünümler arasında taşınır
       viewport.classList.remove("viewport-detached");
     }
@@ -536,7 +489,7 @@ async function start(): Promise<void> {
 
   const legendEl = document.getElementById("panel-legend")!;
   legendEl.innerHTML = PANEL_STATE_ORDER.map((s: PanelState) => {
-    const color = { "orijinal": "var(--muted-2)", "lokal-boyali": "var(--schema)", "boyali": "var(--changed)", "degisen": "var(--fault)" }[s];
+    const color = { "orijinal": "var(--panel-orijinal)", "lokal-boyali": "var(--panel-lokal)", "boyali": "var(--panel-boyali)", "degisen": "var(--panel-degisen)" }[s];
     return `<span class="panel-legend-item"><span class="sw" style="background:${color}"></span>${PANEL_STATE_LABEL[s]}</span>`;
   }).join("");
   document.getElementById("panel-hint")!.textContent = isMusteri ? "görüntüleme" : "tıkla / durum seç";
@@ -564,6 +517,11 @@ async function start(): Promise<void> {
         });
     },
   });
+
+  store.subscribe(() => {
+    scene.setPanelStateColors(store.panelStatus);
+  });
+  scene.setPanelStateColors(store.panelStatus);
 
   switchTab(parseTab(location.hash));
   syncScene();
