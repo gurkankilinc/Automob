@@ -4,14 +4,16 @@ import { theme } from "./state/theme";
 // Yazı tipleri — projeye gömülü (@fontsource), çalışma anında dış bağımlılık yok
 import "@fontsource/chakra-petch/500.css";
 import "@fontsource/chakra-petch/600.css";
+import "@fontsource/chakra-petch/700.css";
 import "@fontsource/exo-2/400.css";
 import "@fontsource/exo-2/600.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./style.css";
+import "./styles/auth.css";
 
 import { AutomobScene, type ViewName } from "./scene/AutomobScene";
 import type { BodyType, RegionId, OpenablePart } from "./scene/carWireframe";
-import { BODY_CONFIGS } from "./scene/carWireframe";
+import { BODY_CONFIGS, ALL_REGION_IDS } from "./scene/carWireframe";
 import { demoVehicle } from "./data/demoVehicle";
 import { service } from "./data/service";
 import { CATALOG, REGION_LABELS, type CatalogItem } from "./data/catalog";
@@ -29,6 +31,9 @@ import type { PanelState } from "./data/bodyPanels";
 import { openCatalog } from "./ui/catalogModal";
 import { openReport, type ReportData } from "./ui/report";
 import { showToast } from "./ui/toast";
+import { initLoginStage, setAuthBusy, playLaunch } from "./ui/loginStage";
+import { runSplash } from "./ui/splash";
+import { initChrome, syncTabIndicator } from "./ui/chrome";
 
 let apiOnline = false;
 let started = false;
@@ -44,41 +49,66 @@ function showLogin(): void {
 
 function showApp(): void {
   document.getElementById("login-screen")!.classList.add("hidden");
-  document.getElementById("app-root")!.classList.remove("hidden");
+  const root = document.getElementById("app-root")!;
+  root.classList.remove("hidden");
+  root.classList.add("entering");
   const user = auth.user!;
   document.getElementById("user-name")!.textContent = user.name;
   document.getElementById("user-role")!.textContent = ROLE_LABEL[user.role] ?? user.role;
+}
+
+/**
+ * Panele geçiş. Ağır kurulum (3B sahne + ilk veri çekimi) açılış ekranının
+ * arkasında koşar, böylece yarım kurulmuş panel görünmez.
+ */
+async function enterApp(): Promise<void> {
+  showApp();
+  initChrome();
+  if (started) return;
+  started = true;
+  await runSplash(() => start());
 }
 
 function setLoginError(msg: string | null): void {
   const el = document.getElementById("login-error")!;
   el.hidden = !msg;
   el.textContent = msg ?? "";
+  if (!msg) return;
+  el.classList.remove("shake");
+  void el.offsetWidth; // reflow — aynı hata tekrarlansa da animasyon yeniden oynasın
+  el.classList.add("shake");
 }
 
 async function attemptLogin(email: string, password: string): Promise<void> {
   const btn = document.getElementById("login-submit") as HTMLButtonElement;
   btn.disabled = true;
+  setAuthBusy(true);
   setLoginError(null);
+
   try {
     await auth.login(email, password);
-    showApp();
-    if (!started) {
-      started = true;
-      await start();
-    }
   } catch (e) {
-    if (e instanceof ApiHttpError) {
-      setLoginError("E-posta veya şifre hatalı.");
-    } else {
-      setLoginError("Sunucuya ulaşılamıyor. Backend'in çalıştığından emin olun.");
-    }
-  } finally {
+    // Yalnızca kimlik doğrulama hataları buraya düşsün; panel kurulumundaki bir
+    // hata "şifre yanlış" diye raporlanmasın.
+    setLoginError(
+      e instanceof ApiHttpError
+        ? "E-posta veya şifre hatalı."
+        : "Sunucuya ulaşılamıyor. Backend'in çalıştığından emin olun.",
+    );
     btn.disabled = false;
+    setAuthBusy(false);
+    return;
   }
+
+  await playLaunch();
+  await enterApp();
+  setAuthBusy(false);
+  btn.disabled = false;
 }
 
 function initLoginScreen(): void {
+  initLoginStage();
+
   document.getElementById("login-form")!.addEventListener("submit", (e) => {
     e.preventDefault();
     const email = (document.getElementById("login-email") as HTMLInputElement).value.trim();
@@ -230,7 +260,7 @@ async function start(): Promise<void> {
   const hidden = new Set<RegionId>();
 
   function syncScene(): void {
-    for (const id of ["motor", "fren", "amortisor"] as RegionId[]) {
+    for (const id of ALL_REGION_IDS) {
       const mode = hidden.has(id) ? "off" : store.regionMode(id);
       scene.setRegionMode(id, mode);
       const first = store.cart.find((i) => i.region === id);
@@ -365,6 +395,7 @@ async function start(): Promise<void> {
   function switchTab(tab: Tab): void {
     const effective: Tab = isMusteri && (tab === "servis" || tab === "musteriler") ? "musteri" : tab;
     for (const b of tabButtons) b.classList.toggle("active", b.dataset.tab === effective);
+    syncTabIndicator();
     document.getElementById("view-servis")!.classList.toggle("hidden", effective !== "servis");
     document.getElementById("view-musteriler")!.classList.toggle("hidden", effective !== "musteriler");
     document.getElementById("view-musteri")!.classList.toggle("hidden", effective !== "musteri");
@@ -579,9 +610,7 @@ async function boot(): Promise<void> {
   }
 
   if (authed) {
-    showApp();
-    started = true;
-    await start();
+    await enterApp();
   } else {
     showLogin();
   }

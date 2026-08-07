@@ -25,4 +25,9 @@ export const MAINTENANCE_RULES: MaintenanceRule[] = [
   { id: "fren-hidrolik", title: "Fren hidroliği değişimi", region: "fren", matchKeyword: "fren hidroliği", intervalKm: 40_000, intervalMonths: 24 },
   { id: "amortisor", title: "Amortisör kontrolü", region: "amortisor", matchKeyword: "amortisör", intervalKm: 40_000, intervalMonths: 48 },
   { id: "rot-balans", title: "Rot balans ayarı", region: "amortisor", matchKeyword: "rot balans", intervalKm: 10_000, intervalMonths: 12 },
+  { id: "lastik-rotasyon", title: "Lastik rotasyonu", region: "lastik", matchKeyword: "rotasyon", intervalKm: 10_000, intervalMonths: 12 },
+  { id: "aku-kontrol", title: "Akü kontrolü", region: "elektrik", matchKeyword: "akü", intervalKm: null, intervalMonths: 24 },
+  { id: "egzoz-kontrol", title: "Egzoz kontrolü", region: "egzoz", matchKeyword: "egzoz", intervalKm: 40_000, intervalMonths: 48 },
+  { id: "klima-gaz", title: "Klima gazı dolumu", region: "klima", matchKeyword: "gaz", intervalKm: null, intervalMonths: 12 },
+  { id: "kabin-filtresi", title: "Kabin filtresi değişimi", region: "klima", matchKeyword: "kabin filtresi", intervalKm: 15_000, intervalMonths: 12 },
 ];

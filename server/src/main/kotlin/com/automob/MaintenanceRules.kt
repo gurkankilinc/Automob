@@ -27,4 +27,9 @@ val MAINTENANCE_RULES = listOf(
     MaintenanceRule("fren-hidrolik", "Fren hidroliği değişimi", "fren", "fren hidroliği", 40_000, 24),
     MaintenanceRule("amortisor", "Amortisör kontrolü", "amortisor", "amortisör", 40_000, 48),
     MaintenanceRule("rot-balans", "Rot balans ayarı", "amortisor", "rot balans", 10_000, 12),
+    MaintenanceRule("lastik-rotasyon", "Lastik rotasyonu", "lastik", "rotasyon", 10_000, 12),
+    MaintenanceRule("aku-kontrol", "Akü kontrolü", "elektrik", "akü", null, 24),
+    MaintenanceRule("egzoz-kontrol", "Egzoz kontrolü", "egzoz", "egzoz", 40_000, 48),
+    MaintenanceRule("klima-gaz", "Klima gazı dolumu", "klima", "gaz", null, 12),
+    MaintenanceRule("kabin-filtresi", "Kabin filtresi değişimi", "klima", "kabin filtresi", 15_000, 12),
 )

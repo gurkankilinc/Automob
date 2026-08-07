@@ -9,47 +9,125 @@
 <body>
   <!-- ============ GİRİŞ EKRANI ============ -->
   <div id="login-screen" class="login-screen">
-    <div class="login-card">
-      <div class="login-brand" style="justify-content: space-between;">
-        <span style="display: flex; align-items: center; gap: 9px;">
-          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 15 L6 9 Q6.6 7.4 8.4 7.4 L15.6 7.4 Q17.4 7.4 18 9 L20 15"
-                  fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-            <path d="M3 15 L21 15 L21 17.4 L3 17.4 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-            <circle cx="7.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-            <circle cx="16.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-          </svg>
-          <span>AUTOMOB</span>
-        </span>
-        <button class="theme-toggle" id="theme-toggle-login" type="button" title="Tema değiştir" aria-label="Açık/koyu tema değiştir">
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="4.2"/>
-            <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/>
-          </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
-          </svg>
-        </button>
-      </div>
-      <h1 class="login-title">Giriş yap</h1>
-      <p class="login-sub">Servis paneline veya araç görünümüne erişmek için hesabınla giriş yap.</p>
-      <form id="login-form" novalidate>
-        <label class="field-label" for="login-email">E-posta</label>
-        <input id="login-email" class="login-input" type="email" autocomplete="username" required />
-        <label class="field-label" for="login-password">Şifre</label>
-        <input id="login-password" class="login-input" type="password" autocomplete="current-password" required />
-        <div class="login-error" id="login-error" hidden></div>
-        <button class="cta block" type="submit" id="login-submit">GİRİŞ YAP</button>
-      </form>
-      <div class="login-demo">
-        <span class="login-demo-label">Demo hesaplar</span>
-        <div class="login-demo-row">
-          <button type="button" class="chip-btn" data-demo="isletme">İşletme olarak gir</button>
-          <button type="button" class="chip-btn" data-demo="musteri">Müşteri olarak gir</button>
+    <div class="auth-bg" aria-hidden="true">
+      <span class="auth-bg-grid"></span>
+      <span class="auth-bg-glow g1"></span>
+      <span class="auth-bg-glow g2"></span>
+    </div>
+
+    <div class="auth-shell">
+      <!-- Marka sahnesi — içeriğini loginStage.ts üretir -->
+      <section class="auth-stage" id="auth-stage"></section>
+
+      <!-- Giriş formu -->
+      <section class="auth-panel">
+        <div class="login-card">
+          <div class="login-brand">
+            <span class="lb-mark">
+              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 15 L6 9 Q6.6 7.4 8.4 7.4 L15.6 7.4 Q17.4 7.4 18 9 L20 15"
+                      fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M3 15 L21 15 L21 17.4 L3 17.4 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="7.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="16.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+              <span>AUTOMOB</span>
+            </span>
+            <button class="theme-toggle" id="theme-toggle-login" type="button" title="Tema değiştir" aria-label="Açık/koyu tema değiştir">
+              <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.2"/>
+                <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/>
+              </svg>
+              <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+              </svg>
+            </button>
+          </div>
+
+          <h1 class="login-title">Giriş yap</h1>
+          <p class="login-sub">Servis paneline veya araç görünümüne erişmek için hesabınla giriş yap.</p>
+
+          <form id="login-form" novalidate>
+            <div class="field">
+              <input id="login-email" class="login-input" type="email" autocomplete="username" placeholder=" " required />
+              <label class="field-label" for="login-email">E-posta</label>
+              <span class="f-line" aria-hidden="true"></span>
+              <span class="f-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2.8" y="5" width="18.4" height="14" rx="2.4"/>
+                  <path d="m3.4 6.6 8.6 6 8.6-6"/>
+                </svg>
+              </span>
+            </div>
+
+            <div class="field">
+              <input id="login-password" class="login-input has-action" type="password" autocomplete="current-password" placeholder=" " required />
+              <label class="field-label" for="login-password">Şifre</label>
+              <span class="f-line" aria-hidden="true"></span>
+              <span class="f-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="10.4" width="16" height="10.2" rx="2.2"/>
+                  <path d="M7.8 10.4V7.6a4.2 4.2 0 0 1 8.4 0v2.8"/>
+                </svg>
+              </span>
+              <button type="button" class="f-action" id="pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2.2 12S5.8 5.4 12 5.4 21.8 12 21.8 12 18.2 18.6 12 18.6 2.2 12 2.2 12Z"/>
+                  <circle cx="12" cy="12" r="3.1"/>
+                </svg>
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9.9 5.7A8.9 8.9 0 0 1 12 5.4c6.2 0 9.8 6.6 9.8 6.6a17 17 0 0 1-3.2 4.1M6.4 7.3A17 17 0 0 0 2.2 12S5.8 18.6 12 18.6a9 9 0 0 0 4-.9"/>
+                  <path d="M3.2 3.2 20.8 20.8"/>
+                </svg>
+              </button>
+            </div>
+
+            <p class="caps-hint" id="caps-hint" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3.6 4.4 11.2h4v4.4h7.2v-4.4h4Z"/><path d="M8.4 19.2h7.2"/>
+              </svg>
+              Caps Lock açık
+            </p>
+
+            <div class="login-error" id="login-error" role="alert" hidden></div>
+
+            <button class="cta block" type="submit" id="login-submit">
+              <span class="cta-spinner" aria-hidden="true"></span>
+              <span class="cta-txt">GİRİŞ YAP</span>
+              <span class="cta-busy">DOĞRULANIYOR</span>
+            </button>
+          </form>
+
+          <div class="login-demo">
+            <span class="login-demo-label">Demo hesaplar</span>
+            <div class="login-demo-row">
+              <button type="button" class="chip-btn" data-demo="isletme">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14.4 6.4a3.9 3.9 0 0 0 5.1 5.1l-7.6 7.6a2.5 2.5 0 0 1-3.5-3.5Z"/>
+                  <path d="m14.4 6.4 2.6-2.6 3.5 3.5-2.6 2.6"/>
+                </svg>
+                İşletme
+              </button>
+              <button type="button" class="chip-btn" data-demo="musteri">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="8.4" r="3.6"/>
+                  <path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/>
+                </svg>
+                Müşteri
+              </button>
+            </div>
+          </div>
+
+          <div class="auth-status" id="auth-status">
+            <span class="as-dot"></span><span class="as-txt">bağlantı denetleniyor…</span>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   </div>
+
+  <!-- ============ AÇILIŞ (giriş sonrası kısa marka anı) ============ -->
+  <div id="splash" class="splash" hidden aria-hidden="true"></div>
 
   <div class="app hidden" id="app-root">
     <header class="bar top">
@@ -63,7 +141,8 @@
         </svg>
         <span class="brand-name">AUTOMOB</span>
       </div>
-      <nav class="tabs" aria-label="Görünümler">
+      <nav class="tabs" id="tabs" aria-label="Görünümler">
+        <span class="tab-ink" aria-hidden="true"></span>
         <button class="tab active" data-tab="servis">Servis Paneli</button>
         <button class="tab" data-tab="musteriler">Müşteriler</button>
         <button class="tab" data-tab="musteri">Müşteri Görünümü</button>
@@ -236,7 +315,7 @@
         <span class="s"></span>
       </button>
       <button class="colabel" id="lab-amortisor" data-region="amortisor">
-        <span class="t">ARKA AMORTİSÖR</span>
+        <span class="t">AMORTİSÖR</span>
         <span class="s"></span>
       </button>
       <button class="colabel" id="lab-fren" data-region="fren">

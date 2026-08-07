@@ -1,4 +1,4 @@
-import type { RegionId } from "../scene/carWireframe";
+import { ALL_REGION_IDS, type RegionId } from "../scene/carWireframe";
 import { store, formatTL } from "../state/store";
 import { TEMPLATE_10K, REGION_LABELS } from "../data/catalog";
 import { demoVehicle } from "../data/demoVehicle";
@@ -24,8 +24,8 @@ export function initServicePanel(opts: {
   const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
   const reminderListEl = document.getElementById("reminder-list")!;
 
-  const interactive: RegionId[] = ["motor", "fren", "amortisor"];
-  const staticRegions = ["Elektrik / akü", "Egzoz", "Kaporta", "Klima", "Lastik / jant"];
+  const interactive: RegionId[] = ALL_REGION_IDS;
+  const staticRegions = ["Kaporta"];
 
   function renderRegions(): void {
     regionList.innerHTML = "";

@@ -39,6 +39,7 @@ object Repository {
                 CatalogItem("V kayışı", 650, "parca"),
                 CatalogItem("Motor takozu", 1250, "parca"),
                 CatalogItem("Enjektör temizliği", 800, "iscilik"),
+                CatalogItem("Antifriz / soğutma sıvısı değişimi", 950, "paket"),
             ),
             "fren" to listOf(
                 CatalogItem("Balata seti (ön)", 1870, "parca"),
@@ -56,11 +57,44 @@ object Repository {
                 CatalogItem("Rotil + z-rot", 1300, "parca"),
                 CatalogItem("Rot balans ayarı", 700, "iscilik"),
             ),
+            "lastik" to listOf(
+                CatalogItem("4 lastik değişimi", 6800, "paket"),
+                CatalogItem("2 lastik değişimi (ön)", 3600, "parca"),
+                CatalogItem("2 lastik değişimi (arka)", 3400, "parca"),
+                CatalogItem("Lastik rotasyonu", 350, "iscilik"),
+                CatalogItem("Lastik tamiri (yama)", 250, "iscilik"),
+                CatalogItem("Jant düzeltme / balans", 500, "iscilik"),
+            ),
+            "elektrik" to listOf(
+                CatalogItem("Akü değişimi", 2800, "parca"),
+                CatalogItem("Akü kontrolü (yük testi)", 150, "iscilik"),
+                CatalogItem("Alternatör tamiri / değişimi", 3200, "parca"),
+                CatalogItem("Marş motoru değişimi", 2600, "parca"),
+                CatalogItem("Sigorta / kablo demeti onarımı", 400, "iscilik"),
+            ),
+            "egzoz" to listOf(
+                CatalogItem("Susturucu değişimi", 3100, "parca"),
+                CatalogItem("Egzoz manifoldu contası", 650, "parca"),
+                CatalogItem("Egzoz askı takozu", 220, "parca"),
+                CatalogItem("Katalitik konvertör değişimi", 7800, "parca"),
+                CatalogItem("Egzoz kaynak / onarım", 900, "iscilik"),
+            ),
+            "klima" to listOf(
+                CatalogItem("Klima gazı dolumu (freon)", 1200, "iscilik"),
+                CatalogItem("Klima kompresörü değişimi", 5200, "parca"),
+                CatalogItem("Klima kondenseri değişimi", 2400, "parca"),
+                CatalogItem("Kabin filtresi değişimi", 350, "parca"),
+                CatalogItem("Klima bakımı (dezenfeksiyon)", 600, "iscilik"),
+            ),
         ),
         regionLabels = mapOf(
             "motor" to "Motor bölgesi",
             "fren" to "Ön fren",
-            "amortisor" to "Arka süspansiyon",
+            "amortisor" to "Amortisör / süspansiyon",
+            "lastik" to "Lastik / Jant",
+            "elektrik" to "Elektrik / Akü",
+            "egzoz" to "Egzoz",
+            "klima" to "Klima",
         ),
     )
 

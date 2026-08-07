@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { RegionId } from "./carWireframe";
+import { ALL_REGION_IDS, type RegionId } from "./carWireframe";
 import type { RegionDef, RegionMode } from "./regions";
 import { MODE_COLOR } from "./regions";
 import { PALETTE } from "./palette";
@@ -18,7 +18,10 @@ export class Callouts {
     private overlay: HTMLCanvasElement,
   ) {
     this.ctx = overlay.getContext("2d")!;
-    for (const id of ["motor", "fren", "amortisor"] as RegionId[]) {
+    // Yalnızca motor/fren/amortisör'ün sahnede sabit köşe etiketi var (#lab-{id});
+    // sonradan eklenen bölgeler (lastik/elektrik/egzoz/klima) için DOM'da karşılığı
+    // yok — bunlar update()'te tam etiket yerine küçük bir nokta işaretleyici alır.
+    for (const id of ALL_REGION_IDS) {
       const el = document.getElementById(`lab-${id}`);
       if (el) this.labels.set(id, el);
     }
@@ -48,16 +51,28 @@ export class Callouts {
 
     for (const def of defs) {
       const el = this.labels.get(def.id);
-      if (!el) continue;
       const mode = modes.get(def.id) ?? "off";
-      el.classList.toggle("off", mode === "off");
-      el.classList.toggle("suggest", mode === "suggest");
+      if (el) {
+        el.classList.toggle("off", mode === "off");
+        el.classList.toggle("suggest", mode === "suggest");
+      }
       if (mode === "off") continue;
 
       this.v.copy(def.anchor).project(camera);
       if (this.v.z > 1) continue; // kameranın arkasında
       const sx = ((this.v.x + 1) / 2) * w;
       const sy = ((1 - this.v.y) / 2) * h;
+      const fillColor = `#${MODE_COLOR[mode].toString(16).padStart(6, "0")}`;
+
+      if (!el) {
+        // Tam etiket kutusu olmayan bölgeler (lastik/elektrik/egzoz/klima): kılavuz
+        // çizgisi yok, yalnızca konumda küçük bir nokta işaretleyici.
+        ctx.fillStyle = fillColor;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
 
       const r = el.getBoundingClientRect();
       const rx0 = r.left - crect.left;
@@ -73,7 +88,7 @@ export class Callouts {
       ctx.lineTo(edgeX, ry);
       ctx.stroke();
 
-      ctx.fillStyle = `#${MODE_COLOR[mode].toString(16).padStart(6, "0")}`;
+      ctx.fillStyle = fillColor;
       ctx.beginPath();
       ctx.arc(sx, sy, 3.2, 0, Math.PI * 2);
       ctx.fill();

@@ -1,10 +1,17 @@
-/* Automob — açık tema varsayılan, koyu tema seçenek; 3D sahne her zaman koyu (ürünün imzası) */
+/* Automob — kokpit arayüzü: koyu tema varsayılan, açık tema seçenek.
+   3D sahne her zaman koyu (ürünün imzası); arayüzün geri kalanı da aynı dilde başlar. */
 :root {
   /* Sabit: marka/durum renkleri — tema değişse de aynı kalır */
   --schema: #f5c93e;
   --changed: #b9790a;
   --fault: #c67a17;
   --ok: #4f8f57;
+
+  /* Vurgu türevleri — odak halkası, ışıma, seçili yüzey */
+  --accent-soft: rgba(245, 201, 62, 0.13);
+  --accent-line: rgba(245, 201, 62, 0.38);
+  --ring: 0 0 0 3px rgba(245, 201, 62, 0.2);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* Kaporta panelleri durum renkleri */
   --panel-degisen: #ef4444;
@@ -26,37 +33,47 @@
   --stage-chrome-text: #ece8dc;
   --stage-chrome-muted: #8b92a2;
 
-  /* ---- Açık tema (varsayılan) ---- */
+  /* ---- Koyu tema (varsayılan — kokpit) ---- */
+  --bg: #0a0d13;
+  --bg-glow:
+    radial-gradient(1100px 640px at 82% -12%, rgba(38, 52, 78, 0.55) 0%, transparent 62%),
+    radial-gradient(900px 520px at 8% 108%, rgba(80, 58, 12, 0.34) 0%, transparent 60%);
+  --bg-texture:
+    linear-gradient(rgba(126, 148, 184, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126, 148, 184, 0.055) 1px, transparent 1px);
+  --panel: #111721;
+  --card: #131a25;
+  --card-2: #1a2230;
+  --line: #262f3e;
+  --line-soft: #1d2531;
+  --text: #e9e6dd;
+  --muted: #8d96a8;
+  --muted-2: #5e6878;
+  --shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+  --header-bg: rgba(10, 13, 19, 0.72);
+  --changed: #d29418;
+  --fault: #e8a13d;
+  --ok: #7bb47f;
+}
+
+:root[data-theme="light"] {
   --bg: #f3f1ea;
-  --bg-glow: none;
+  --bg-glow:
+    radial-gradient(1000px 560px at 84% -14%, rgba(245, 201, 62, 0.16) 0%, transparent 62%),
+    radial-gradient(800px 480px at 4% 106%, rgba(185, 121, 10, 0.09) 0%, transparent 60%);
+  --bg-texture:
+    linear-gradient(rgba(120, 106, 66, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 106, 66, 0.055) 1px, transparent 1px);
   --panel: #ffffff;
   --card: #ffffff;
-  --card-2: #f2efe4;
+  --card-2: #f4f1e6;
   --line: #ddd7c4;
   --line-soft: #e8e3d3;
   --text: #22201a;
   --muted: #6b6455;
   --muted-2: #948c78;
   --shadow: 0 8px 24px rgba(40, 32, 10, 0.09);
-  --header-bg: rgba(255, 255, 255, 0.86);
-}
-
-:root[data-theme="dark"] {
-  --bg: #12151c;
-  --bg-glow: radial-gradient(1200px 700px at 78% -10%, #1a2130 0%, transparent 60%);
-  --panel: #191e27;
-  --card: #1c222c;
-  --card-2: #212834;
-  --line: #2a3140;
-  --line-soft: #232a36;
-  --text: #ece8dc;
-  --muted: #8b92a2;
-  --muted-2: #626a7a;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  --header-bg: rgba(18, 21, 28, 0.75);
-  --changed: #d29418;
-  --fault: #e8a13d;
-  --ok: #7bb47f;
+  --header-bg: rgba(255, 255, 255, 0.82);
 }
 
 * { box-sizing: border-box; }
@@ -71,68 +88,187 @@ body {
   overflow: hidden;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
+/* Kokpit dokusu: kartların arasındaki boşluklarda görünen ince ölçüm ızgarası.
+   Ekranın ortasına doğru silinir, kenarlarda kalır. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--bg-texture);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 45%, transparent 12%, #000 88%);
+  mask-image: radial-gradient(ellipse at 50% 45%, transparent 12%, #000 88%);
+}
+
 button { font-family: inherit; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
 ::-webkit-scrollbar-track { background: transparent; }
 
 .hidden { display: none !important; }
 
-.app { display: flex; flex-direction: column; height: 100svh; }
+.app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100svh; }
+/* Girişten sonra panel yerine otururken */
+.app.entering { animation: app-in 0.5s var(--ease) both; }
+@keyframes app-in {
+  from { opacity: 0; transform: scale(0.988); }
+  to   { opacity: 1; transform: none; }
+}
 
 /* ---------- Barlar ---------- */
 .bar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 0 18px; flex-wrap: wrap;
 }
-.bar.top { height: 58px; background: var(--header-bg); border-bottom: 1px solid var(--line); }
-.bar.bottom { height: 42px; border-top: 1px solid var(--line); color: var(--muted-2); font-size: 13px; }
+.bar.top {
+  position: relative; z-index: 4;
+  height: 60px;
+  flex-wrap: nowrap;
+  background: var(--header-bg);
+  backdrop-filter: blur(14px) saturate(1.3);
+  border-bottom: 1px solid var(--line);
+}
+/* Dar ekranda başlık sarmamalı: marka ve sekmeler sabit kalır, sağ küme daralır */
+.bar.top .brand { flex: none; }
+.bar.top .tabs { flex: none; }
+.bar.top .car-id { flex: 1 1 auto; min-width: 0; justify-content: flex-end; overflow: hidden; }
+@media (max-width: 1240px) { .tab { padding: 7px 12px; font-size: 13.5px; } }
+/* Başlığın altındaki amber ışık şeridi — kokpit hattı */
+.bar.top::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-line) 22%, var(--schema) 50%, var(--accent-line) 78%, transparent);
+  opacity: 0.7;
+}
+.bar.bottom {
+  position: relative; z-index: 2;
+  height: 42px; border-top: 1px solid var(--line);
+  color: var(--muted-2); font-size: 13px;
+  background: linear-gradient(0deg, var(--panel), transparent);
+}
 .hints { display: flex; gap: 16px; flex-wrap: wrap; }
-.hints b { color: var(--muted); font-weight: 600; }
+.hints span { display: inline-flex; align-items: center; gap: 6px; }
+.hints b {
+  color: var(--muted); font-weight: 600;
+  font-family: var(--font-data); font-size: 11.5px;
+  border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px;
+  background: var(--panel);
+}
 #op-summary { font-family: var(--font-data); font-size: 13px; letter-spacing: 0.03em; color: var(--muted); }
 
+/* ---------- Marka ---------- */
 .brand { display: flex; align-items: center; gap: 9px; color: var(--schema); }
-.brand-mark { display: block; }
+.brand-mark { display: block; filter: drop-shadow(0 0 6px rgba(245, 201, 62, 0.35)); }
 .brand-name {
   font-family: var(--font-display); font-weight: 600; font-size: 17px;
   letter-spacing: 0.24em; padding-left: 2px;
+  background-image: linear-gradient(100deg, #b9790a, #f5c93e 42%, #fff4cd 50%, #f5c93e 58%, #b9790a);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: brand-sheen 9s ease-in-out infinite;
 }
-.tabs { display: flex; gap: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+@keyframes brand-sheen {
+  0%, 62%, 100% { background-position: 120% 0; }
+  92%           { background-position: -20% 0; }
+}
+
+/* ---------- Sekmeler (kayan gösterge) ---------- */
+.tabs {
+  position: relative;
+  display: flex; gap: 3px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.tab-ink {
+  position: absolute; top: 3px; bottom: 3px; left: 0;
+  width: var(--ink-w, 0);
+  transform: translateX(var(--ink-x, 0));
+  border-radius: 999px;
+  background: linear-gradient(160deg, var(--card-2), var(--panel));
+  box-shadow: inset 0 0 0 1px var(--accent-line), 0 3px 12px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.34s var(--ease), width 0.34s var(--ease), opacity 0.2s ease;
+}
+.tabs.ink-ready .tab-ink { opacity: 1; }
 .tab {
+  position: relative; z-index: 1;
   font-family: var(--font-display);
   background: none; border: none; color: var(--muted);
   font-size: 14px; padding: 7px 17px; border-radius: 999px; cursor: pointer; letter-spacing: 0.03em;
-  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  transition: color 0.18s ease;
 }
 .tab:hover { color: var(--text); }
-.tab.active { background: var(--card-2); color: var(--changed); box-shadow: inset 0 0 0 1px var(--line); }
+.tab.active { color: var(--schema); text-shadow: 0 0 14px rgba(245, 201, 62, 0.35); }
 .tab:focus-visible { outline: 2px solid var(--schema); outline-offset: 2px; }
 
+/* ---------- Sağ küme ---------- */
 .car-id { display: flex; align-items: center; gap: 10px; }
+
+/* TR plakası — mavi AB şeridi ile */
 .plate {
+  position: relative;
   font-family: var(--font-data);
-  background: #e8e4d8; color: #14181f;
-  border-radius: 5px; padding: 4px 10px; font-size: 14.5px; font-weight: 500;
-  letter-spacing: 0.08em; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.15);
+  background: linear-gradient(180deg, #ffffff, #e6e3d6);
+  color: #14181f;
+  border-radius: 5px; padding: 5px 10px 5px 21px; font-size: 14.5px; font-weight: 500;
+  letter-spacing: 0.08em; white-space: nowrap;
+  box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.35);
 }
-.car-meta { color: var(--muted); font-size: 14px; }
+.plate:empty { display: none; }
+.plate::before {
+  content: "TR";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 15px;
+  display: grid; align-content: end; justify-items: center; padding-bottom: 3px;
+  background: linear-gradient(180deg, #1e3f9e, #142a72);
+  color: #fff; font-size: 7.5px; font-weight: 700; letter-spacing: 0;
+  border-radius: 4px 0 0 4px;
+}
+.car-meta {
+  color: var(--muted); font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;
+}
+/* Yer daraldıkça sağ kümede en az kritik bilgi önce düşer.
+   Öncelik sırası: sekmeler > plaka > tema/çıkış > bağlantı rozeti > kullanıcı adı > araç özeti */
+@media (max-width: 1340px) { .car-meta { display: none; } }
+@media (max-width: 1180px) {
+  .api-badge .api-text { display: none; }
+  .api-badge { padding: 4px 6px; }
+  .user-role { display: none; }
+}
+@media (max-width: 1100px) {
+  .user-name { display: none; }
+  /* Marka yazısı düşer, işaret kalır — tema/çıkış düğmelerine yer açar */
+  .brand-name { display: none; }
+}
+/* Bağlantı noktası en sona kadar kalır: sunucu durumu her genişlikte görünsün */
+@media (max-width: 900px) { .api-badge { display: none; } }
+
 .api-badge {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12.5px; color: var(--muted); font-family: var(--font-data);
   border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px;
+  background: var(--panel);
 }
 .api-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); }
 .api-badge.online { color: var(--ok); border-color: rgba(79,143,87,0.4); }
 .api-badge.online .api-dot { background: var(--ok); box-shadow: 0 0 7px rgba(79,143,87,0.7); }
-.api-badge.offline .api-dot { background: var(--fault); }
+.api-badge.offline { color: var(--fault); border-color: rgba(198,122,23,0.4); }
+.api-badge.offline .api-dot { background: var(--fault); animation: api-blink 1.6s ease-in-out infinite; }
+@keyframes api-blink { 50% { opacity: 0.25; } }
 
 /* ---------- Tema anahtarı ---------- */
 .theme-toggle {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border-radius: 8px;
-  background: none; border: 1px solid var(--line); color: var(--muted); cursor: pointer;
+  width: 32px; height: 32px; border-radius: 9px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--muted); cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, transform 0.16s var(--ease);
 }
-.theme-toggle:hover { color: var(--schema); border-color: var(--schema); }
+.theme-toggle:hover { color: var(--schema); border-color: var(--schema); transform: rotate(-18deg); }
 .theme-toggle:focus-visible { outline: 2px solid var(--schema); outline-offset: 1px; }
 .theme-toggle svg { width: 16px; height: 16px; }
 .theme-toggle .icon-moon { display: none; }
@@ -152,22 +288,41 @@ button { font-family: inherit; }
 
 /* ---------- Kart ---------- */
 .card {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 15px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.045);
   flex-shrink: 0;
 }
+/* HUD köşe işaretleri — üst sol / alt sağ */
+.card::before, .card::after {
+  content: "";
+  position: absolute;
+  width: 11px; height: 11px;
+  border: 1px solid var(--accent-line);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.card::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; border-radius: var(--r) 0 0 0; }
+.card::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; border-radius: 0 0 var(--r) 0; }
 .card.grow { flex: 1 0 auto; min-height: 240px; display: flex; flex-direction: column; overflow: hidden; }
 .card.grow .region-list { flex: 1; min-height: 160px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .card.grow .timeline { flex: 1; min-height: 240px; max-height: 480px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .card.grow .panel-list { flex: 1; min-height: 220px; max-height: 450px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .card-head {
+  position: relative;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
 }
+/* Başlık altındaki çizginin sol ucu amber — okuma yönünü başlatır */
+.card-head::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; height: 1px; width: 42px;
+  background: linear-gradient(90deg, var(--schema), transparent);
+}
 .card-title {
+  display: flex; align-items: center; gap: 8px;
   font-family: var(--font-display);
   font-size: 13.5px; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--text); font-weight: 600;
@@ -180,10 +335,12 @@ button { font-family: inherit; }
 /* ---------- Araç kartı ---------- */
 .veh-top { display: flex; align-items: center; gap: 11px; }
 .avatar {
+  position: relative; overflow: hidden;
   width: 42px; height: 42px; flex: none; border-radius: 10px;
   display: grid; place-items: center;
   font-family: var(--font-display); font-weight: 600; font-size: 18px; color: #14181f;
-  background: linear-gradient(140deg, var(--schema), #d9a520);
+  background: linear-gradient(140deg, #ffe58a, var(--schema) 40%, #c9971a);
+  box-shadow: 0 4px 12px rgba(185, 121, 10, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .veh-owner { font-weight: 600; font-size: 15.5px; }
 .veh-sub { color: var(--muted); font-size: 13px; font-family: var(--font-data); margin-top: 1px; }
@@ -233,8 +390,11 @@ button { font-family: inherit; }
   font-size: 12px; padding: 7px 3px; border-radius: 7px; letter-spacing: 0.01em; white-space: nowrap; text-align: center;
   transition: color 0.15s, background 0.15s;
 }
-.seg button:hover { color: var(--text); }
-.seg button.active { background: var(--card-2); color: var(--changed); box-shadow: inset 0 0 0 1px var(--line); }
+.seg button:hover { color: var(--text); background: var(--card-2); }
+.seg button.active {
+  background: var(--accent-soft); color: var(--schema);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
 .seg button:focus-visible { outline: 2px solid var(--schema); outline-offset: 1px; }
 
 /* ---------- Bölge listesi ---------- */
@@ -280,6 +440,19 @@ button { font-family: inherit; }
 .scene-slot::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   box-shadow: inset 0 0 120px rgba(0,0,0,0.55);
+}
+/* Vizör köşe braketleri — sahneyi "ölçüm alanı" gibi çerçeveler */
+.scene-slot::before {
+  content: ""; position: absolute; inset: 11px; z-index: 2; pointer-events: none; opacity: 0.4;
+  background:
+    linear-gradient(var(--schema), var(--schema)) 0 0 / 1px 20px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 0 0 / 20px 1px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 100% 0 / 1px 20px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 100% 0 / 20px 1px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 0 100% / 1px 20px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 0 100% / 20px 1px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 100% 100% / 1px 20px no-repeat,
+    linear-gradient(var(--schema), var(--schema)) 100% 100% / 20px 1px no-repeat;
 }
 #viewport { position: absolute; inset: 0; }
 .viewport-detached { display: none; }
@@ -337,6 +510,13 @@ button { font-family: inherit; }
   padding: 10px 11px 10px 14px; margin: 8px 0; font-size: 14px;
   display: flex; align-items: center; gap: 8px; background: var(--card-2);
   overflow: hidden;
+  transition: border-color 0.16s ease, transform 0.16s var(--ease);
+  animation: cart-in 0.3s var(--ease) both;
+}
+.cart-item:hover { border-color: var(--muted-2); transform: translateX(2px); }
+@keyframes cart-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: none; }
 }
 .cart-item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--changed); }
 .cart-item.oneri::before { background: var(--fault); }
@@ -374,16 +554,27 @@ button { font-family: inherit; }
 .totals .row.grand .val { color: var(--changed); }
 
 .cta {
+  position: relative; overflow: hidden;
   font-family: var(--font-display);
-  background: linear-gradient(140deg, var(--schema), #e0b52c); color: #14181f;
+  background: linear-gradient(140deg, #ffe07a, var(--schema) 38%, #d9a520); color: #14181f;
   border: none; border-radius: 10px; padding: 13px; font-weight: 600;
   letter-spacing: 0.05em; cursor: pointer; font-size: 14.5px;
-  transition: filter 0.15s, transform 0.05s;
+  box-shadow: 0 6px 18px rgba(185, 121, 10, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: filter 0.15s, transform 0.12s var(--ease), box-shadow 0.2s ease;
 }
 .cta.block { width: 100%; }
-.cta:hover { filter: brightness(1.06); }
-.cta:active { transform: translateY(1px); }
-.cta:disabled { opacity: 0.38; cursor: default; filter: none; }
+/* Üzerine gelince geçen ışık */
+.cta::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 42%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+}
+.cta:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(185, 121, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.45); }
+.cta:hover::after { left: 130%; }
+.cta:active { transform: translateY(1px); box-shadow: 0 3px 10px rgba(185, 121, 10, 0.3); }
+.cta:disabled { opacity: 0.38; cursor: default; filter: none; transform: none; box-shadow: none; }
+.cta:disabled::after { display: none; }
 .cta:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 /* ---------- Müşteri görünümü ---------- */
@@ -664,7 +855,18 @@ button { font-family: inherit; }
   box-shadow: 0 12px 32px rgba(0,0,0,0.3); max-width: 90vw;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-@media (prefers-reduced-motion: reduce) { .toast, .modal-backdrop.open { transition: none; animation: none; } }
+
+/* ---------- Hareket azaltma tercihi ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .toast, .modal-backdrop.open { transition: none; animation: none; }
+  .brand-name, .app.entering, .cart-item, .api-badge.offline .api-dot { animation: none !important; }
+  .brand-name { background-position: 40% 0; }
+  .tab-ink { transition: opacity 0.2s ease; }
+  .cta, .cta::after, .theme-toggle, .cart-item { transition: none; }
+  .cta:hover, .cta:active { transform: none; }
+  .cta:hover::after { left: -60%; }
+  .theme-toggle:hover { transform: none; }
+}
 
 /* ---------- Kaporta durumu (üstten görünüm) ---------- */
 .panel-diagram-card { display: flex; flex-direction: column; overflow: hidden; }

@@ -12,7 +12,12 @@
  *                konup eksen etrafında döndürülebilsin diye.
  *  - `regions` : bakım bölgeleri (motor/fren/amortisör) — vurgu için ayrı malzeme.
  */
-export type RegionId = "motor" | "fren" | "amortisor";
+export type RegionId = "motor" | "fren" | "amortisor" | "lastik" | "elektrik" | "egzoz" | "klima";
+
+/** Bölge listesi — sahne raycast/rapor/senkron döngülerinde tek kaynak. */
+export const ALL_REGION_IDS: RegionId[] = [
+  "motor", "fren", "amortisor", "lastik", "elektrik", "egzoz", "klima",
+];
 export type BodyType = "sedan" | "hatchback" | "suv" | "minibus" | "kamyon" | "otobus" | "tir";
 export type PaintZone = "hood" | "doors" | "trunk" | "body";
 export type OpenablePart = "hood" | "trunk" | "doorFL" | "doorFR" | "doorRL" | "doorRR";
@@ -281,7 +286,9 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     trunk: { 1: [], 2: [], 3: [] },
     body: { 1: [], 2: [], 3: [] },
   };
-  const regions: Record<RegionId, number[]> = { motor: [], fren: [], amortisor: [] };
+  const regions: Record<RegionId, number[]> = {
+    motor: [], fren: [], amortisor: [], lastik: [], elektrik: [], egzoz: [], klima: [],
+  };
   const parts = {} as Record<OpenablePart, PartDef>;
 
   const L = cfg.lift;
@@ -323,6 +330,10 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
   const Rmotor = R("motor");
   const Rfren = R("fren");
   const Ramort = R("amortisor");
+  const Rlastik = R("lastik");
+  const Relektrik = R("elektrik");
+  const Regzoz = R("egzoz");
+  const Rklima = R("klima");
 
   /** Menteşeli parça tanımlar; dönen emitter pivota göre koordinat yazar. */
   function definePart(
@@ -405,28 +416,71 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
   bottomLine(cfg.bodyHalfW);
   bottomLine(-cfg.bodyHalfW);
 
-  // Tekerlekler; önlerde fren diski + kaliper = "fren" bölgesi
+  // Tekerlekler; lastik gövdesi + jant = "lastik" bölgesi, öndeki disk/kaliper = "fren".
+  // Tekerlek gerçek bir silindir olarak kurulur: dış yüz + iç yüz + aradaki sırt.
   function wheel(cx: number, z: number, front: boolean): void {
     const cy = cfg.wheelY;
     const r = cfg.wheelR;
-    S.circle(cx, cy, z, r, "xy", 20, 1);
-    S.circle(cx, cy, z, r * 0.78, "xy", 18, 3);  // lastik omuz çizgisi
-    S.circle(cx, cy, z, r * 0.6, "xy", 14, 2);
-    S.circle(cx, cy, z, r * 0.13, "xy", 8, 2);
+    const side: 1 | -1 = z > 0 ? 1 : -1;
+    const wW = r * 0.62;              // lastik genişliği
+    const zo = z;                     // dış yüz (gövde dışına bakan)
+    const zi = z - side * wW;         // iç yüz
+    const T = Rlastik;
+    /** Tekerlek düzlemindeki kutupsal nokta. */
+    const p = (rad: number, ang: number, zz: number): P =>
+      [cx + rad * Math.cos(ang), cy + rad * Math.sin(ang), zz];
+
+    // ---- Lastik: sırt silindiri + iki yanak ----
+    T.circle(cx, cy, zo, r, "xy", 24, 1);
+    T.circle(cx, cy, zi, r, "xy", 24, 2);
+    for (let i = 0; i < 16; i++) {                        // sırt blokları
+      const a = (i / 16) * Math.PI * 2;
+      T.add(p(r, a, zo), p(r, a, zi), 3);
+    }
+    for (const t of [0.34, 0.66]) {                       // çevresel su kanalları
+      T.circle(cx, cy, z - side * wW * t, r * 0.99, "xy", 20, 3);
+    }
+    T.circle(cx, cy, zo, r * 0.87, "xy", 20, 3);          // omuz çizgisi
+    T.circle(cx, cy, zi, r * 0.87, "xy", 16, 3);
+
+    // ---- Jant: kovan + göbek + beş çift tel ----
+    const rimR = r * 0.66;                                // jant flanşı
+    const hubR = r * 0.22;
+    const zh = zo - side * r * 0.07;                      // göbek yüzü içeride (çanaklı jant)
+    T.circle(cx, cy, zo, rimR, "xy", 20, 2);
+    T.circle(cx, cy, zi, rimR, "xy", 16, 3);
+    T.circle(cx, cy, zh, hubR, "xy", 12, 2);
+    T.circle(cx, cy, zh, r * 0.1, "xy", 8, 3);            // göbek kapağı
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2 + 0.5;
-      S.add(
-        [cx + r * 0.13 * Math.cos(a), cy + r * 0.13 * Math.sin(a), z],
-        [cx + r * 0.6 * Math.cos(a), cy + r * 0.6 * Math.sin(a), z],
-        2,
-      );
-      // bijon somunları
-      S.circle(cx + r * 0.2 * Math.cos(a), cy + r * 0.2 * Math.sin(a), z, 0.02, "xy", 5, 3);
+      // konik tel: göbekte dar, flanşta geniş
+      T.poly([
+        p(hubR, a - 0.11, zh), p(rimR * 0.97, a - 0.21, zo),
+        p(rimR * 0.97, a + 0.21, zo), p(hubR, a + 0.11, zh),
+      ], 3, true);
+      // teller arasındaki boşluğun jant flanşına bağlantısı
+      T.add(p(rimR * 0.97, a + 0.32, zo), p(rimR, a + 0.32, zi), 3);
+      // bijon somunu
+      T.circle(cx + r * 0.13 * Math.cos(a), cy + r * 0.13 * Math.sin(a), zh, r * 0.045, "xy", 5, 3);
     }
-    const zi = z > 0 ? z - 0.16 : z + 0.16;
-    const E = front ? Rfren : S;
-    E.circle(cx, cy, zi, r * 0.37, "xy", 12, front ? 2 : 3);
-    if (front) Rfren.circle(cx, cy, z, r * 0.6, "xy", 14, 2);
+    // sibop
+    T.add(p(rimR * 0.8, 3.6, zo), p(rimR * 0.95, 3.6, zo + side * 0.02), 3);
+
+    // ---- Fren diski: havalandırma delikli, kanallı ----
+    const E = front ? Rfren : Rlastik;
+    const zd = z - side * wW * 0.42;                      // disk, lastiğin ortasına yakın
+    const dR = r * 0.58;
+    E.circle(cx, cy, zd, dR, "xy", 18, front ? 2 : 3);
+    E.circle(cx, cy, zd, dR * 0.72, "xy", 14, 3);         // sürtünme bandı iç sınırı
+    E.circle(cx, cy, zd, dR * 0.42, "xy", 10, 3);         // göbek (şapka)
+    for (let i = 0; i < 8; i++) {                         // havalandırma delikleri
+      const a = (i / 8) * Math.PI * 2 + 0.25;
+      E.circle(cx + dR * 0.86 * Math.cos(a), cy + dR * 0.86 * Math.sin(a), zd, r * 0.035, "xy", 5, 3);
+    }
+    for (let i = 0; i < 12; i++) {                        // iç havalandırma kanalları
+      const a = (i / 12) * Math.PI * 2;
+      E.add(p(dR * 0.74, a, zd), p(dR * 0.99, a, zd - side * 0.012), 3);
+    }
   }
   wheel(cfg.frontX, cfg.bodyHalfW, true);
   wheel(cfg.frontX, -cfg.bodyHalfW, true);
@@ -908,6 +962,26 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
       [e.x1, e.y1 - 0.02, 0.14], [e.x1 + 0.12, e.y1 + 0.04, 0.2],
       [radX - 0.02, e.y1 - 0.04, 0.22],
     ], 3);
+
+    // Klima kondenseri — radyatörün hemen önünde (ızgaraya yakın), "klima" bölgesi
+    const acX = radX - 0.09;
+    Rklima.box(acX, e.y0 + 0.04, -e.halfZ * 0.75, acX + 0.03, e.y1 - 0.06, e.halfZ * 0.75, 3);
+    for (let i = 1; i < 5; i++) {
+      const yy = e.y0 + 0.04 + (i / 5) * (e.y1 - 0.06 - (e.y0 + 0.04));
+      Rklima.add([acX, yy, -e.halfZ * 0.75], [acX, yy, e.halfZ * 0.75], 3);
+    }
+    // kondenserden kompresöre giden soğutucu gaz hattı
+    Rklima.poly([
+      [acX, e.y0 + 0.1, e.halfZ * 0.6], [e.x1 + 0.1, e.y0 + 0.12, -0.2], [e.x1 + 0.02, e.y0 + 0.12, -0.32],
+    ], 3);
+  }
+
+  // Klima kompresörü — motorun ön yüzünde, kayış-kasnak takımından ayrı — "klima" bölgesi
+  {
+    const acx = e.x1 + 0.02, acy = e.y0 + 0.12, acz = -0.32;
+    Rklima.circle(acx, acy, acz, 0.065, "yz", 10, 2);
+    Rklima.circle(acx, acy, acz, 0.024, "yz", 6, 3);
+    Rklima.cyl(acx, acy, acz, 0.065, 0.08, "x", 8, 3);
   }
 
   // Hava filtresi kutusu + emme hortumu (statik detay)
@@ -926,32 +1000,41 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     }
   }
 
-  // Akü + kutup başları (statik — elektrik aksamı)
+  // Akü + kutup başları — "elektrik" bölgesi
   {
     const bx = e.x0 - 0.02, bz = -(e.halfZ + 0.2);
-    S.box(bx, e.y0 + 0.14, bz - 0.13, bx + 0.3, e.y0 + 0.36, bz + 0.13, 3);
-    for (const s of [-1, 1]) S.cyl(bx + 0.07, e.y0 + 0.36, bz + s * 0.08, 0.025, 0.04, "y", 8, 3);
-    S.add([bx + 0.07, e.y0 + 0.4, bz - 0.08], [bx - 0.06, e.y0 + 0.42, bz - 0.2], 3);
+    Relektrik.box(bx, e.y0 + 0.14, bz - 0.13, bx + 0.3, e.y0 + 0.36, bz + 0.13, 3);
+    for (const s of [-1, 1]) Relektrik.cyl(bx + 0.07, e.y0 + 0.36, bz + s * 0.08, 0.025, 0.04, "y", 8, 3);
+    Relektrik.add([bx + 0.07, e.y0 + 0.4, bz - 0.08], [bx - 0.06, e.y0 + 0.42, bz - 0.2], 3);
   }
 
-  // Fren hidroliği + soğutma suyu depoları, sigorta kutusu (statik)
+  // Alternatör — motorun ön yüzünde, kayış-kasnak takımından ayrı — "elektrik" bölgesi
   {
-    S.cyl(e.x0 - 0.1, e.y1 - 0.02, 0.24, 0.055, 0.13, "y", 10, 3);           // fren hidroliği
-    S.cyl(e.x1 + 0.1, e.y0 + 0.2, e.halfZ + 0.2, 0.075, 0.2, "y", 10, 3);    // soğutma suyu
-    S.box(e.x0 - 0.16, e.y0 + 0.3, -(e.halfZ + 0.02), e.x0 + 0.04, e.y0 + 0.42, -(e.halfZ - 0.2), 3); // sigorta kutusu
-    // cam suyu deposu
-    S.cyl(e.x0 + 0.02, e.y0 + 0.1, -(e.halfZ + 0.24), 0.07, 0.22, "y", 10, 3);
+    const alx = e.x1 + 0.02, aly = e.y0 + 0.28, alz = 0.3;
+    Relektrik.circle(alx, aly, alz, 0.055, "yz", 10, 2);
+    Relektrik.circle(alx, aly, alz, 0.02, "yz", 6, 3);
+    Relektrik.cyl(alx, aly, alz, 0.055, 0.09, "x", 8, 3);
+    Relektrik.add([alx, aly + 0.05, alz], [alx, e.y0 + 0.4, alz + 0.02], 3); // gerdirme kolu
   }
 
-  // Kule takozları (süspansiyon üst yatakları) + firewall
+  // Fren hidroliği deposu — "fren" bölgesi
+  Rfren.cyl(e.x0 - 0.1, e.y1 - 0.02, 0.24, 0.055, 0.13, "y", 10, 3);
+  // Soğutma suyu deposu — "motor" bölgesi
+  Rmotor.cyl(e.x1 + 0.1, e.y0 + 0.2, e.halfZ + 0.2, 0.075, 0.2, "y", 10, 3);
+  // Sigorta kutusu — "elektrik" bölgesi
+  Relektrik.box(e.x0 - 0.16, e.y0 + 0.3, -(e.halfZ + 0.02), e.x0 + 0.04, e.y0 + 0.42, -(e.halfZ - 0.2), 3);
+  // Cam suyu deposu (statik — servis kalemi değil)
+  S.cyl(e.x0 + 0.02, e.y0 + 0.1, -(e.halfZ + 0.24), 0.07, 0.22, "y", 10, 3);
+
+  // Kule takozları (ön süspansiyon üst yatakları) — "amortisor" bölgesi
   for (const s of [1, -1]) {
     const tz = s * (cfg.bodyHalfW - 0.18);
     const tx = cfg.frontX - 0.05;
-    S.circle(tx, e.y1 + 0.04, tz, 0.15, "xz", 12, 3);
-    S.circle(tx, e.y1 + 0.04, tz, 0.055, "xz", 8, 3);
+    Ramort.circle(tx, e.y1 + 0.04, tz, 0.15, "xz", 12, 3);
+    Ramort.circle(tx, e.y1 + 0.04, tz, 0.055, "xz", 8, 3);
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2;
-      S.add(
+      Ramort.add(
         [tx + 0.15 * Math.cos(a), e.y1 + 0.04, tz + 0.15 * Math.sin(a)],
         [tx + 0.11 * Math.cos(a), e.y0 + 0.24, tz + 0.11 * Math.sin(a)],
         3,
@@ -982,8 +1065,8 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     // amortisör gövdesi
     E.add([cx, y0, cz], [cx, y0 + 0.36, cz], 3);
   }
-  spring(cfg.frontX, 0.52, S);
-  spring(cfg.frontX, -0.52, S);
+  spring(cfg.frontX, 0.52, Ramort);
+  spring(cfg.frontX, -0.52, Ramort);
   spring(cfg.rearX, 0.52, Ramort);
   spring(cfg.rearX, -0.52, Ramort);
 
@@ -997,12 +1080,19 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     );
   }
 
-  // Şaft + egzoz hattı + susturucu (statik alt aksam)
+  // Egzoz hattı + susturucu + uç borusu — "egzoz" bölgesi
   {
     const ey = cfg.sillY - 0.14;
-    S.poly([[e.x0 - 0.05, ey + 0.02, -0.3], [cfg.rearX - 0.2, ey, -0.34]], 3);
-    S.box(cfg.rearX - 0.55, ey - 0.07, -0.42, cfg.rearX - 0.2, ey + 0.05, -0.26, 3);
-    S.add([cfg.rearX - 0.55, ey, -0.34], [rearBottom[0] + 0.02, ey, -0.4], 3);
+    Regzoz.poly([[e.x0 - 0.05, ey + 0.02, -0.3], [cfg.rearX - 0.2, ey, -0.34]], 3);
+    Regzoz.box(cfg.rearX - 0.55, ey - 0.07, -0.42, cfg.rearX - 0.2, ey + 0.05, -0.26, 3);
+    Regzoz.add([cfg.rearX - 0.55, ey, -0.34], [rearBottom[0] + 0.02, ey, -0.4], 3);
+    // egzoz ucu
+    Regzoz.circle(rearBottom[0] + 0.02, ey, -0.4, 0.045, "yz", 8, 3);
+  }
+
+  // Şaft + aktarma sistemi (statik alt aksam)
+  {
+    const ey = cfg.sillY - 0.14;
     // aktarma şaftı
     S.add([e.x0 - 0.1, ey + 0.06, 0], [cfg.rearX, ey + 0.06, 0], 3);
     S.circle(cfg.rearX, ey + 0.06, 0, 0.09, "yz", 8, 3);  // diferansiyel
@@ -1010,6 +1100,300 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
     S.add([cfg.rearX, ey + 0.06, cfg.bodyHalfW - 0.1], [cfg.rearX, ey + 0.06, -(cfg.bodyHalfW - 0.1)], 3);
     // yakıt deposu
     S.box(cfg.rearX + 0.2, ey, -0.3, cfg.rearX + 0.7, ey + 0.16, 0.3, 3);
+  }
+
+  // ================= DIŞ DETAYLAR =================
+
+  // ---- Ön yüz: mercekli far, gündüz farı şeridi, sis farı, alt hava girişi, arma ----
+  {
+    const fy = noseTop[1];
+    const lampY = fy - 0.09;
+    for (const s of [1, -1]) {
+      const zc = s * noseHW * 0.78;
+      // mercek (projektör) + reflektör halkası
+      S.circle(noseX + 0.01, lampY, zc + s * 0.06, 0.045, "yz", 10, 3);
+      S.circle(noseX + 0.015, lampY, zc + s * 0.06, 0.018, "yz", 6, 3);
+      // gündüz farı (LED şerit) — far gövdesinin alt kenarı boyunca
+      S.add([noseX + 0.012, lampY - 0.055, zc - s * 0.02], [noseX + 0.012, lampY - 0.045, zc + s * 0.2], 3);
+      // sinyal bölmesi
+      S.circle(noseX + 0.01, lampY + 0.02, zc + s * 0.18, 0.022, "yz", 6, 3);
+      // sis farı — tamponun alt köşesinde
+      S.circle(noseX + 0.005, cfg.sillY + 0.1, s * noseHW * 0.62, 0.038, "yz", 8, 3);
+      S.circle(noseX + 0.012, cfg.sillY + 0.1, s * noseHW * 0.62, 0.014, "yz", 5, 3);
+    }
+    // alt hava girişi (petek) — tampon altı
+    const iy0 = cfg.sillY + 0.05, iy1 = cfg.sillY + 0.17;
+    const ihw = noseHW * 0.46;
+    S.poly([
+      [noseX, iy0, -ihw], [noseX, iy0, ihw], [noseX, iy1, ihw], [noseX, iy1, -ihw],
+    ], 3, true);
+    for (let i = -2; i <= 2; i++) {
+      S.add([noseX, iy0, (i / 2) * ihw * 0.8], [noseX, iy1, (i / 2) * ihw * 0.8], 3);
+    }
+    // marka arması (ızgara ortası)
+    S.circle(noseX + 0.01, (grBot + grTop) / 2, 0, 0.055, "yz", 10, 3);
+    S.add([noseX + 0.01, (grBot + grTop) / 2, -0.055], [noseX + 0.01, (grBot + grTop) / 2, 0.055], 3);
+    // tampon alt spoyler hattı
+    B.poly([
+      [noseX, cfg.sillY + 0.02, -noseHW * 0.9],
+      [noseX - 0.1, cfg.sillY - 0.04, -noseHW * 0.86],
+      [noseX - 0.1, cfg.sillY - 0.04, noseHW * 0.86],
+      [noseX, cfg.sillY + 0.02, noseHW * 0.9],
+    ], 3);
+  }
+
+  // ---- Arka yüz: bölmeli stop lambası, reflektör, arma ----
+  {
+    const ly = rearTop[1] - 0.1;
+    for (const s of [1, -1]) {
+      const zc = s * rearHW * 0.78;
+      // fren / park / geri vites bölmeleri
+      for (let i = 0; i < 3; i++) {
+        S.poly([
+          [rX - 0.008, ly - i * 0.045, zc - s * 0.01],
+          [rX - 0.008, ly - i * 0.045, zc + s * 0.19],
+          [rX - 0.008, ly - i * 0.045 - 0.035, zc + s * 0.18],
+          [rX - 0.008, ly - i * 0.045 - 0.035, zc - s * 0.01],
+        ], 3, true);
+      }
+      // tampon reflektörü
+      S.poly([
+        [rX - 0.004, cfg.sillY + 0.09, s * rearHW * 0.55],
+        [rX - 0.004, cfg.sillY + 0.09, s * rearHW * 0.74],
+        [rX - 0.004, cfg.sillY + 0.14, s * rearHW * 0.74],
+        [rX - 0.004, cfg.sillY + 0.14, s * rearHW * 0.55],
+      ], 3, true);
+    }
+    // arma + model yazısı hizası
+    S.circle(rX - 0.01, rearTop[1] - 0.2, 0, 0.05, "yz", 10, 3);
+    S.add([rX - 0.01, rearTop[1] - 0.3, -0.22], [rX - 0.01, rearTop[1] - 0.3, 0.22], 3);
+    // egzoz çıkış kesiti (tampon)
+    S.poly([
+      [rX - 0.004, cfg.sillY + 0.02, -0.46], [rX - 0.004, cfg.sillY + 0.02, -0.32],
+      [rX - 0.004, cfg.sillY + 0.09, -0.32], [rX - 0.004, cfg.sillY + 0.09, -0.46],
+    ], 3, true);
+  }
+
+  // ---- Silecekler + cam suyu fıskiyeleri ----
+  {
+    const baseY = windowEdgeAt(winXMax, "bottom");
+    const top = cfg.window[2];
+    for (const s of [1, -1]) {
+      const pz = s * cfg.glassZ * 0.42;
+      const px = winXMax - 0.02;
+      const tipX = px + (top[0] - px) * 0.62;
+      const tipY = baseY + (top[1] - baseY) * 0.62;
+      S.circle(px, baseY - 0.01, pz, 0.022, "xz", 6, 3);          // silecek mili
+      S.add([px, baseY, pz], [tipX, tipY, pz + s * 0.06], 2);      // kol
+      S.add([tipX, tipY, pz + s * 0.06], [tipX + 0.1, tipY - 0.24, pz - s * 0.16], 3); // süpürge
+      S.add([px + 0.06, baseY - 0.015, pz], [px + 0.08, baseY + 0.005, pz], 3);        // fıskiye
+    }
+  }
+
+  // ---- Çatı anteni (yüzgeç) + tavan rayları ----
+  {
+    const roofPts = cfg.window.filter((p) => p[1] > cfg.beltY + 0.15);
+    if (roofPts.length >= 2) {
+      const rx0 = Math.min(...roofPts.map((p) => p[0]));
+      const rx1 = Math.max(...roofPts.map((p) => p[0]));
+      const ry = Math.max(...roofPts.map((p) => p[1]));
+      // yüzgeç anten — tavanın arka ucunda
+      B.poly([
+        [rx0 + 0.1, ry, 0], [rx0 - 0.02, ry + 0.075, 0], [rx0 - 0.1, ry + 0.075, 0], [rx0 - 0.06, ry, 0],
+      ], 3, true);
+      // tavan rayları (yüksek kasalarda belirgin)
+      if (cfg.lift > 0.05) {
+        for (const s of [1, -1]) {
+          const rz = s * cfg.glassZ * 0.82;
+          B.add([rx0 + 0.1, ry + 0.03, rz], [rx1 - 0.1, ry + 0.03, rz], 3);
+          for (const t of [0.06, 0.94]) {
+            const x = rx0 + 0.1 + (rx1 - 0.2 - rx0) * t;
+            B.add([x, ry, rz], [x, ry + 0.03, rz], 3);
+          }
+        }
+      }
+    }
+  }
+
+  // ---- Yakıt dolum kapağı + yan sinyal tekrarlayıcı ----
+  {
+    const fcX = (cfg.doorSeams[1] + (cfg.rearX + cfg.archR)) / 2;
+    const fcY = cfg.beltY - 0.2;
+    const z = cfg.bodyHalfW;
+    B.circle(fcX, fcY, z, 0.085, "xy", 12, 3);
+    B.add([fcX - 0.085, fcY, z], [fcX - 0.06, fcY, z], 3);   // menteşe çentiği
+    // ön çamurluk üstü sinyal tekrarlayıcı (iki yan)
+    for (const s of [1, -1]) {
+      const sx = cfg.frontX - cfg.archR - 0.08;
+      B.poly([
+        [sx, cfg.beltY - 0.3, s * cfg.bodyHalfW], [sx - 0.11, cfg.beltY - 0.28, s * cfg.bodyHalfW],
+        [sx - 0.11, cfg.beltY - 0.33, s * cfg.bodyHalfW], [sx, cfg.beltY - 0.35, s * cfg.bodyHalfW],
+      ], 3, true);
+    }
+  }
+
+  // ---- Tekerlek davlumbaz içliği + marşpiyel ----
+  for (const s of [1, -1]) {
+    const zOut = s * cfg.bodyHalfW;
+    const zIn = s * (cfg.bodyHalfW - 0.14);
+    for (const cx of [cfg.frontX, cfg.rearX]) {
+      const inner: P[] = [];
+      for (let i = 0; i <= 8; i++) {
+        const a = Math.PI - (Math.PI * i) / 8;
+        inner.push([cx + cfg.archR * 0.94 * Math.cos(a), cfg.sillY + cfg.archR * 0.94 * Math.sin(a), zIn]);
+      }
+      S.poly(inner, 3);
+      // davlumbaz ağzını gövdeye bağlayan kenar
+      S.add([cx - cfg.archR, cfg.sillY, zOut], [cx - cfg.archR * 0.94, cfg.sillY, zIn], 3);
+      S.add([cx + cfg.archR, cfg.sillY, zOut], [cx + cfg.archR * 0.94, cfg.sillY, zIn], 3);
+    }
+    // marşpiyel (eşik kaplaması)
+    B.poly([
+      [cfg.rearX + cfg.archR, cfg.sillY, zOut],
+      [cfg.rearX + cfg.archR, cfg.sillY - 0.06, zOut - s * 0.03],
+      [cfg.frontX - cfg.archR, cfg.sillY - 0.06, zOut - s * 0.03],
+      [cfg.frontX - cfg.archR, cfg.sillY, zOut],
+    ], 3);
+  }
+
+  // ================= ALT TAKIM / SÜSPANSİYON =================
+
+  const axleY = cfg.wheelY;
+  const frameZ = cfg.bodyHalfW - 0.26;
+
+  // ---- Alt salıncaklar (A kolu), rot ve rotil — "amortisor" bölgesi ----
+  for (const cx of [cfg.frontX, cfg.rearX]) {
+    for (const s of [1, -1]) {
+      const zW = s * (cfg.bodyHalfW - 0.1);   // teker göbeği
+      const zF = s * frameZ;                  // şasi bağlantısı
+      const ay = axleY - 0.12;
+      // A kolu: iki şasi burcu + tek rotil
+      Ramort.add([cx - 0.24, ay, zF], [cx, ay - 0.02, zW], 2);
+      Ramort.add([cx + 0.2, ay, zF], [cx, ay - 0.02, zW], 2);
+      Ramort.add([cx - 0.24, ay, zF], [cx + 0.2, ay, zF], 3);
+      Ramort.circle(cx - 0.24, ay, zF, 0.035, "xz", 6, 3);   // burç
+      Ramort.circle(cx + 0.2, ay, zF, 0.035, "xz", 6, 3);
+      Ramort.circle(cx, ay - 0.02, zW, 0.03, "xy", 6, 3);    // rotil
+      // üst kol (çift salıncak) — göbekten kule takozuna
+      Ramort.add([cx - 0.02, axleY + 0.16, zW], [cx - 0.14, axleY + 0.24, zF + s * 0.06], 3);
+      // poryа / göbek taşıyıcı
+      Ramort.add([cx, ay - 0.02, zW], [cx, axleY + 0.16, zW], 3);
+    }
+    // viraj denge çubuğu (z ekseni boyunca) + bağlantı kolları
+    Ramort.add([cx - 0.22, axleY - 0.16, -frameZ], [cx - 0.22, axleY - 0.16, frameZ], 2);
+    for (const s of [1, -1]) {
+      Ramort.add([cx - 0.22, axleY - 0.16, s * frameZ], [cx - 0.18, axleY - 0.1, s * (cfg.bodyHalfW - 0.14)], 3);
+    }
+  }
+  // ön rot kolları (direksiyon kutusundan tekerleklere)
+  for (const s of [1, -1]) {
+    Rfren.add(
+      [cfg.frontX - 0.12, axleY - 0.02, s * 0.2],
+      [cfg.frontX - 0.06, axleY, s * (cfg.bodyHalfW - 0.12)],
+      3,
+    );
+  }
+
+  // ---- Şasi boyu kirişleri + travers ----
+  {
+    const fy = cfg.sillY - 0.1;
+    for (const s of [1, -1]) {
+      const z = s * frameZ;
+      S.add([rearBottom[0] + 0.1, fy, z], [noseBottom[0] - 0.1, fy, z], 3);
+      S.add([rearBottom[0] + 0.1, fy - 0.06, z], [noseBottom[0] - 0.1, fy - 0.06, z], 3);
+    }
+    for (const x of [cfg.rearX, 0, cfg.frontX]) {
+      S.add([x, fy - 0.03, -frameZ], [x, fy - 0.03, frameZ], 3);
+    }
+    // ön ve arka aks taşıyıcı beşik
+    for (const cx of [cfg.frontX, cfg.rearX]) {
+      S.poly([
+        [cx - 0.26, fy - 0.08, -frameZ * 0.9], [cx + 0.22, fy - 0.08, -frameZ * 0.9],
+        [cx + 0.22, fy - 0.08, frameZ * 0.9], [cx - 0.26, fy - 0.08, frameZ * 0.9],
+      ], 3, true);
+    }
+  }
+
+  // ---- Aks milleri + fren hidrolik hatları ----
+  {
+    for (const s of [1, -1]) {
+      // ön aks milleri (şanzımandan tekerleğe)
+      S.add([e.x0 - 0.2, axleY - 0.02, s * 0.14], [cfg.frontX, axleY, s * (cfg.bodyHalfW - 0.12)], 3);
+      // fren hortumları: şasiden kalipere
+      Rfren.poly([
+        [cfg.frontX - 0.2, cfg.sillY - 0.02, s * frameZ],
+        [cfg.frontX - 0.14, axleY + 0.16, s * (cfg.bodyHalfW - 0.2)],
+        [cfg.frontX - 0.04, axleY + cfg.wheelR * 0.44, s * (cfg.bodyHalfW - 0.14)],
+      ], 3);
+      Rfren.poly([
+        [cfg.rearX + 0.2, cfg.sillY - 0.06, s * frameZ],
+        [cfg.rearX + 0.06, axleY + 0.12, s * (cfg.bodyHalfW - 0.2)],
+      ], 3);
+    }
+  }
+
+  // ================= MOTOR BÖLMESİ — EK DETAY =================
+
+  // ---- Ateşleme bobinleri (silindir kapağı üstü) — "elektrik" bölgesi ----
+  for (let i = 0; i < 4; i++) {
+    const x = e.x0 + 0.1 + ((e.x1 - e.x0 - 0.2) * i) / 3;
+    Relektrik.box(x - 0.025, e.y1 + 0.1, -0.05, x + 0.025, e.y1 + 0.16, 0.05, 3);
+    Relektrik.add([x, e.y1 + 0.16, 0], [x - 0.03, e.y1 + 0.19, -0.14], 3);   // buji kablosu
+  }
+
+  // ---- Yağ filtresi + karter tapası — "motor" bölgesi ----
+  Rmotor.cyl(e.x1 - 0.14, e.y0 - 0.14, 0.2, 0.05, 0.11, "y", 8, 3);
+  Rmotor.box(e.x0 + 0.06, e.y0 - 0.2, -e.halfZ * 0.7, e.x1 - 0.06, e.y0, e.halfZ * 0.7, 3);  // karter
+  Rmotor.circle(e.x0 + 0.16, e.y0 - 0.2, 0.06, 0.022, "xz", 6, 3);                            // tapa
+
+  // ---- Fren merkez silindiri + hidrolik takviye (servo) — "fren" bölgesi ----
+  {
+    const mx = hoodEndX + 0.06;
+    Rfren.cyl(mx, e.y1 - 0.06, 0.24, 0.11, 0.16, "x", 12, 3);      // servo tenceresi
+    Rfren.cyl(mx + 0.16, e.y1 - 0.06, 0.24, 0.045, 0.14, "x", 8, 3); // merkez silindiri
+    Rfren.add([mx + 0.3, e.y1 - 0.06, 0.24], [e.x0 - 0.1, e.y1 - 0.02, 0.24], 3); // depoya hat
+  }
+
+  // ---- Turbo + intercooler borulaması — "motor" bölgesi ----
+  {
+    const tx = e.x0 + 0.04, ty = e.y0 + 0.3, tz = -(e.halfZ + 0.02);
+    Rmotor.circle(tx, ty, tz, 0.075, "yz", 10, 2);        // salyangoz
+    Rmotor.circle(tx, ty, tz, 0.03, "yz", 6, 3);
+    Rmotor.cyl(tx, ty, tz, 0.075, 0.09, "x", 8, 3);
+    // basınç borusu: turbodan intercooler'a, oradan manifolda
+    Rmotor.poly([
+      [tx + 0.09, ty, tz], [e.x1 - 0.1, ty - 0.16, tz - 0.1],
+      [e.x1 + 0.14, e.y0 + 0.06, -e.halfZ * 0.5], [e.x1 + 0.14, e.y0 + 0.06, e.halfZ * 0.5],
+      [e.x0 + 0.26, e.y1 + 0.1, e.halfZ * 0.4],
+    ], 3);
+  }
+
+  // ================= İÇ MEKÂN — EK DETAY =================
+
+  // ---- Emniyet kemerleri + B sütunu iç kaplaması ----
+  {
+    const bx = cfg.doorSeams[0];
+    for (const s of [1, -1]) {
+      const z = s * (cfg.bodyHalfW - 0.07);
+      S.add([bx, cfg.sillY + 0.06, z], [bx, cfg.beltY + 0.22, z], 3);          // B sütunu
+      S.add([bx + 0.02, cfg.beltY + 0.16, z], [bx + 0.16, 0.56 + L, z - s * 0.05], 3); // kemer bandı
+      S.box(bx - 0.03, cfg.beltY + 0.1, z - s * 0.03, bx + 0.03, cfg.beltY + 0.2, z, 3); // yükseklik ayarı
+      S.box(bx + 0.14, 0.52 + L, z - s * 0.09, bx + 0.2, 0.58 + L, z - s * 0.03, 3);     // toka
+    }
+  }
+
+  // ---- Arka pencere altı rafı + hoparlörler ----
+  {
+    const px0 = trunkStartX;
+    const px1 = trunkStartX + 0.32;
+    const py = cfg.beltY - 0.04;
+    S.poly([
+      [px0, py, cfg.bodyHalfW - 0.12], [px1, py, cfg.bodyHalfW - 0.12],
+      [px1, py, -(cfg.bodyHalfW - 0.12)], [px0, py, -(cfg.bodyHalfW - 0.12)],
+    ], 3, true);
+    for (const s of [1, -1]) {
+      S.circle((px0 + px1) / 2, py + 0.002, s * (cfg.bodyHalfW - 0.3), 0.075, "xz", 10, 3);
+    }
   }
 
   return { cls, paint, parts, regions, cfg };

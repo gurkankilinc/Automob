@@ -1,0 +1,796 @@
+/* ============================================================
+   Automob — Giriş ekranı
+   Sol taraf "marka sahnesi": her zaman koyu (3B görünümle aynı imza),
+   dönen tekerlek + animasyonlu AUTOMOB logosu.
+   Sağ taraf giriş formu: aktif temaya uyar.
+   Tüm hareketler @media (prefers-reduced-motion) ile kapanır (en altta).
+   ============================================================ */
+
+:root {
+  /* Sahne paleti — tema ile değişmez */
+  --st-bg: #0b0e14;
+  --st-bg-2: #161d29;
+  --st-ink: #ece8dc;
+  --st-dim: #8b92a2;
+  --st-line: rgba(245, 201, 62, 0.18);
+
+  /* Tekerlek dönüş süresi — JS bunu değiştirerek hızlandırır */
+  --spin-dur: 5.5s;
+}
+
+/* ---------- Ekran + arka plan ---------- */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  overflow: auto;
+  background-color: var(--bg);
+  background-image: var(--bg-glow);
+}
+
+.auth-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.auth-bg-grid {
+  position: absolute;
+  inset: -25%;
+  background-image:
+    linear-gradient(rgba(140, 130, 100, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 130, 100, 0.13) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 42%, #000 0%, transparent 68%);
+  mask-image: radial-gradient(ellipse at 50% 42%, #000 0%, transparent 68%);
+  animation: auth-grid-pan 24s linear infinite;
+}
+:root[data-theme="dark"] .auth-bg-grid {
+  background-image:
+    linear-gradient(rgba(140, 160, 200, 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140, 160, 200, 0.10) 1px, transparent 1px);
+}
+@keyframes auth-grid-pan {
+  to { background-position: 48px 96px; }
+}
+
+.auth-bg-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+}
+.auth-bg-glow.g1 {
+  width: 46vw; height: 46vw; left: -8vw; top: -12vw;
+  background: radial-gradient(circle, rgba(245, 201, 62, 0.34), transparent 68%);
+  animation: auth-drift-a 18s ease-in-out infinite alternate;
+}
+.auth-bg-glow.g2 {
+  width: 40vw; height: 40vw; right: -10vw; bottom: -14vw;
+  background: radial-gradient(circle, rgba(185, 121, 10, 0.28), transparent 68%);
+  animation: auth-drift-b 22s ease-in-out infinite alternate;
+}
+@keyframes auth-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(5vw, 4vw, 0) scale(1.12); }
+}
+@keyframes auth-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to   { transform: translate3d(-4vw, -5vw, 0) scale(1); }
+}
+
+/* ---------- Kabuk: sahne + form ---------- */
+.auth-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1020px, 100%);
+  min-height: min(600px, 86vh);
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: 0 40px 110px rgba(30, 25, 10, 0.22), 0 2px 0 rgba(255, 255, 255, 0.5) inset;
+  animation: auth-shell-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+:root[data-theme="dark"] .auth-shell {
+  box-shadow: 0 40px 110px rgba(0, 0, 0, 0.62);
+}
+@keyframes auth-shell-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Giriş başarılı — kalkış animasyonu */
+.login-screen.launching .auth-shell {
+  animation: auth-launch 0.5s cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+@keyframes auth-launch {
+  60%  { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1.10) translateY(-10px); opacity: 0; }
+}
+
+/* ============================================================
+   SOL — Marka sahnesi
+   ============================================================ */
+.auth-stage {
+  position: relative;
+  overflow: hidden;
+  padding: 34px 32px 30px;
+  display: flex;
+  flex-direction: column;
+  color: var(--st-ink);
+  background:
+    radial-gradient(120% 90% at 50% 22%, var(--st-bg-2) 0%, var(--st-bg) 62%, #07090d 100%);
+  perspective: 900px;
+}
+/* Sahne içi ince ışık halkası */
+.auth-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.6);
+}
+
+.stage-eyebrow {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--st-dim);
+  animation: auth-fade-up 0.6s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.se-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 10px var(--ok);
+  animation: auth-pulse 2.4s ease-in-out infinite;
+}
+@keyframes auth-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.8); }
+}
+@keyframes auth-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Sahnenin ortası — fare ile hafif eğilir (JS --tx/--ty yazar) */
+.stage-core {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  transform: rotateX(var(--ty, 0deg)) rotateY(var(--tx, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---------- Hız çizgileri ---------- */
+.hero-streaks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-streaks i {
+  position: absolute;
+  left: 100%;
+  height: 1px;
+  width: var(--w, 90px);
+  background: linear-gradient(90deg, transparent, rgba(245, 201, 62, 0.55));
+  top: var(--t, 30%);
+  animation: auth-streak var(--d, 2.6s) linear var(--dl, 0s) infinite;
+  opacity: 0;
+}
+@keyframes auth-streak {
+  0%   { transform: translateX(0); opacity: 0; }
+  12%  { opacity: 0.75; }
+  85%  { opacity: 0.2; }
+  100% { transform: translateX(-140%); opacity: 0; }
+}
+
+/* ---------- Tekerlek ---------- */
+.hero-wheel {
+  position: relative;
+  width: clamp(148px, 20vw, 208px);
+  aspect-ratio: 1;
+  transform: translateZ(40px);
+}
+.hero-wheel::after {
+  content: "";
+  position: absolute;
+  left: 8%; right: 8%;
+  bottom: -6px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 70%);
+  filter: blur(4px);
+}
+.wheel-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.w-spin {
+  transform-origin: 120px 120px;
+  animation: auth-spin var(--spin-dur) linear infinite;
+}
+.w-blur {
+  transform-origin: 120px 120px;
+  animation: auth-spin calc(var(--spin-dur) * 0.55) linear infinite;
+}
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+
+.w-tire      { fill: none; stroke: #1b2029; stroke-width: 26; }
+.w-tread     { fill: none; stroke: #333c4a; stroke-width: 26; stroke-dasharray: 5 11; }
+.w-sidewall  { fill: none; stroke: rgba(255, 255, 255, 0.09); stroke-width: 1.5; }
+.w-edge      { fill: none; stroke: rgba(255, 255, 255, 0.13); stroke-width: 1.2; }
+/* rim / spoke / hub dolguları SVG'de attribute olarak verilir (gradient id'leri değişken) */
+.w-rim       { fill: none; stroke-width: 5; }
+.w-barrel    { fill: #0d1117; stroke: rgba(245, 201, 62, 0.22); stroke-width: 1; }
+.w-rotor     { fill: #222a37; stroke: #4a5464; stroke-width: 1.2; }
+.w-groove    { fill: none; stroke: rgba(255, 255, 255, 0.13); stroke-width: 1; }
+.w-hole      { fill: #0b0e14; }
+.w-spoke     { stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.6; }
+.w-hub       { stroke: rgba(245, 201, 62, 0.4); stroke-width: 1.2; }
+.w-lug       { fill: #0d1117; stroke: rgba(255, 255, 255, 0.18); stroke-width: 0.8; }
+.w-cap       { fill: var(--schema); }
+.w-arc       { fill: none; stroke: rgba(245, 201, 62, 0.4); stroke-width: 2; stroke-linecap: round; }
+.w-caliper   { fill: none; stroke: #57627a; stroke-width: 15; stroke-linecap: round; }
+.w-caliper-hi{ fill: none; stroke: rgba(245, 201, 62, 0.65); stroke-width: 2; stroke-linecap: round; }
+.w-heat {
+  fill: none;
+  stroke: var(--fault);
+  stroke-width: 2.5;
+  opacity: 0;
+  animation: auth-heat 3.6s ease-in-out infinite;
+}
+@keyframes auth-heat {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 0.55; }
+}
+
+/* ---------- Yol şeridi ---------- */
+.hero-road {
+  position: relative;
+  width: min(360px, 82%);
+  height: 2px;
+  margin-top: 2px;
+  background: linear-gradient(90deg, transparent, rgba(245, 201, 62, 0.28), transparent);
+  overflow: hidden;
+  transform: translateZ(20px);
+}
+.hero-road::after {
+  content: "";
+  position: absolute;
+  inset: 0 -60px;
+  background-image: repeating-linear-gradient(90deg, var(--schema) 0 20px, transparent 20px 56px);
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  animation: auth-road calc(var(--spin-dur) * 0.2) linear infinite;
+}
+@keyframes auth-road { to { transform: translateX(-56px); } }
+
+/* ---------- Logo yazısı ---------- */
+.hero-word {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(34px, 5.4vw, 58px);
+  line-height: 1;
+  letter-spacing: 0.14em;
+  padding-left: 0.14em; /* letter-spacing'in sağdaki fazlasını dengeler */
+  transform: translateZ(60px);
+  filter: drop-shadow(0 3px 16px rgba(245, 201, 62, 0.22));
+}
+
+/* Krom parlaması harf başına uygulanır: harfler transform/filter ile canlandığı
+   için üst öğedeki background-clip:text onların içine boyayamıyor. Her harf
+   kendi gradyanını taşır, gecikme farkı ışığın yazı boyunca ilerlemesini verir. */
+.hw-l {
+  display: inline-block;
+  background-image: linear-gradient(
+    100deg,
+    #e0ac1f 0%, #f5c93e 38%, #fff8dd 50%, #f5c93e 62%, #e0ac1f 100%
+  );
+  background-size: 700% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    auth-letter 0.72s cubic-bezier(0.16, 1, 0.3, 1) both,
+    auth-sheen 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: calc(var(--i) * 72ms + 180ms), calc(1.2s + var(--i) * 65ms);
+}
+@keyframes auth-sheen {
+  0%   { background-position: 100% 0; }
+  46%  { background-position: 0 0; }
+  100% { background-position: 0 0; }
+}
+@keyframes auth-letter {
+  from { opacity: 0; transform: translateY(0.42em) rotateX(-75deg); filter: blur(7px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* "O" harfi = küçük dönen jant */
+.hw-o {
+  display: inline-block;
+  width: 0.74em;
+  height: 0.74em;
+  margin: 0 0.05em;
+  transform: translateY(0.055em);
+  color: var(--schema);
+  animation: auth-letter 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 72ms + 180ms);
+}
+.hw-o svg { display: block; width: 100%; height: 100%; }
+.hw-o .o-spin {
+  transform-origin: 24px 24px;
+  animation: auth-spin calc(var(--spin-dur) * 1.6) linear infinite;
+}
+
+/* ---------- Dönen slogan ---------- */
+.hero-tagline {
+  height: 22px;
+  overflow: hidden;
+  font-size: 14px;
+  color: var(--st-dim);
+  text-align: center;
+  transform: translateZ(30px);
+  animation: auth-fade-up 0.6s 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.ht-text { display: inline-block; }
+.ht-text.swap { animation: auth-tag-swap 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes auth-tag-swap {
+  0%   { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* ---------- Özellik rozetleri ---------- */
+.stage-features {
+  position: relative;
+  z-index: 2;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+.stage-features li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--st-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--st-line);
+  border-radius: 999px;
+  padding: 6px 13px;
+  animation: auth-fade-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 110ms + 0.9s);
+}
+.stage-features svg { width: 14px; height: 14px; color: var(--schema); flex: none; }
+
+/* ============================================================
+   SAĞ — Giriş formu
+   ============================================================ */
+.auth-panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--card);
+}
+/* Üst kenardaki akan ışık şeridi */
+.auth-panel::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--schema), transparent);
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  animation: auth-edge 4.5s ease-in-out infinite;
+  opacity: 0.8;
+}
+@keyframes auth-edge {
+  0%   { background-position: -60% 0; }
+  100% { background-position: 160% 0; }
+}
+
+.login-card {
+  width: 100%;
+  padding: 34px 34px 30px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-theme="dark"] .login-card { box-shadow: none; }
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--schema);
+  margin-bottom: 24px;
+}
+.lb-mark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.22em;
+}
+.login-title {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  letter-spacing: 0.01em;
+}
+.login-sub {
+  color: var(--muted);
+  font-size: 13.8px;
+  margin: 0 0 22px;
+  line-height: 1.55;
+}
+
+/* ---------- Alanlar: yüzen etiket + odak çizgisi ---------- */
+.field { position: relative; margin-bottom: 14px; }
+
+.login-input {
+  width: 100%;
+  height: 58px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 22px 14px 8px 44px;
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+.login-input.has-action { padding-right: 46px; }
+.login-input:hover { border-color: var(--muted-2); }
+.login-input:focus {
+  outline: none;
+  border-color: var(--schema);
+  background: var(--panel);
+  box-shadow: 0 0 0 4px rgba(245, 201, 62, 0.14);
+}
+
+.field .field-label {
+  position: absolute;
+  left: 44px;
+  top: 19px;
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 400;
+  color: var(--muted);
+  pointer-events: none;
+  transform-origin: left top;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.18s ease, letter-spacing 0.18s ease;
+}
+.login-input:focus + .field-label,
+.login-input:not(:placeholder-shown) + .field-label {
+  transform: translateY(-11px) scale(0.76);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted-2);
+}
+.login-input:focus + .field-label { color: var(--changed); }
+
+/* Odaklanınca ortadan açılan alt çizgi */
+.f-line {
+  position: absolute;
+  left: 12px; right: 12px; bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--changed), var(--schema));
+  transform: scaleX(0);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+.login-input:focus ~ .f-line { transform: scaleX(1); }
+
+.f-icon {
+  position: absolute;
+  left: 15px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-2);
+  display: flex;
+  pointer-events: none;
+  transition: color 0.16s ease;
+}
+.f-icon svg { width: 17px; height: 17px; }
+.login-input:focus ~ .f-icon { color: var(--schema); }
+
+.f-action {
+  position: absolute;
+  right: 9px; top: 50%;
+  transform: translateY(-50%);
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted-2);
+  cursor: pointer;
+}
+.f-action:hover { color: var(--text); border-color: var(--line); }
+.f-action:focus-visible { outline: 2px solid var(--schema); outline-offset: 1px; }
+.f-action svg { width: 17px; height: 17px; }
+.f-action .icon-eye-off { display: none; }
+.f-action[aria-pressed="true"] .icon-eye { display: none; }
+.f-action[aria-pressed="true"] .icon-eye-off { display: block; }
+
+.caps-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -6px 0 12px;
+  font-size: 12.5px;
+  color: var(--fault);
+  animation: auth-fade-up 0.24s ease both;
+}
+.caps-hint svg { width: 14px; height: 14px; flex: none; }
+/* display:flex, [hidden] özniteliğinin display:none'ını ezer — geri al */
+.caps-hint[hidden], .login-error[hidden] { display: none; }
+
+/* ---------- Hata ---------- */
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(198, 122, 23, 0.1);
+  border: 1px solid rgba(198, 122, 23, 0.4);
+  color: var(--fault);
+  border-radius: 9px;
+  padding: 10px 13px;
+  font-size: 13.8px;
+  margin-bottom: 14px;
+}
+.login-error::before {
+  content: "!";
+  flex: none;
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--fault);
+  color: var(--card);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+.login-error.shake { animation: auth-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+@keyframes auth-shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+
+/* ---------- Gönder düğmesi ---------- */
+#login-submit {
+  position: relative;
+  overflow: hidden;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+  box-shadow: 0 8px 20px rgba(185, 121, 10, 0.28);
+}
+/* Üzerine gelince geçen parlama */
+#login-submit::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -60%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.55s ease;
+}
+#login-submit:hover::after { left: 130%; }
+#login-submit:disabled { box-shadow: none; }
+
+.cta-txt, .cta-busy { position: relative; z-index: 1; }
+.cta-busy { display: none; }
+.cta-spinner { display: none; }
+#login-submit.busy .cta-txt { display: none; }
+#login-submit.busy .cta-busy { display: inline; }
+#login-submit.busy .cta-spinner {
+  display: block;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(20, 24, 31, 0.28);
+  border-top-color: #14181f;
+  animation: auth-spin 0.75s linear infinite;
+}
+
+/* ---------- Demo hesaplar ---------- */
+.login-demo { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
+.login-demo-row .chip-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 12px;
+  transition: transform 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.login-demo-row .chip-btn svg { width: 15px; height: 15px; flex: none; }
+.login-demo-row .chip-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--schema);
+  color: var(--text);
+}
+.login-demo-row .chip-btn:focus-visible { outline: 2px solid var(--schema); outline-offset: 2px; }
+
+/* ---------- Sunucu durumu ---------- */
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--muted-2);
+}
+.as-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--muted-2);
+  animation: auth-pulse 1.6s ease-in-out infinite;
+}
+.auth-status.online .as-dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: none; }
+.auth-status.online { color: var(--ok); }
+.auth-status.offline .as-dot { background: var(--fault); animation: none; }
+.auth-status.offline { color: var(--fault); }
+
+/* ============================================================
+   Açılış ekranı (giriş sonrası kısa marka anı)
+   ============================================================ */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  color: var(--st-ink);
+  background:
+    radial-gradient(120% 90% at 50% 34%, var(--st-bg-2) 0%, var(--st-bg) 58%, #06080c 100%);
+}
+.splash[hidden] { display: none; }
+.splash.out { animation: splash-out 0.38s cubic-bezier(0.5, 0, 0.75, 0) forwards; }
+@keyframes splash-out {
+  to { opacity: 0; transform: scale(1.06); }
+}
+
+.sp-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.sp-wheel { width: 96px; --spin-dur: 0.5s; }
+.sp-wheel .wheel-svg { width: 100%; height: auto; }
+.hero-word.sp-word {
+  font-size: clamp(26px, 4vw, 34px);
+  margin: 2px 0 4px;
+}
+.sp-bar {
+  width: 190px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.sp-bar i {
+  display: block;
+  height: 100%;
+  width: 8%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--changed), var(--schema));
+  box-shadow: 0 0 10px rgba(245, 201, 62, 0.6);
+  animation: sp-fill 2.4s cubic-bezier(0.15, 0.9, 0.2, 1) forwards;
+}
+@keyframes sp-fill {
+  to { width: 100%; }
+}
+.sp-status {
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--st-dim);
+  min-height: 15px;
+}
+
+/* ============================================================
+   Dar ekran — sahne üstte ince bir şerit olur
+   ============================================================ */
+@media (max-width: 880px) {
+  .login-screen { padding: 0; place-items: stretch; }
+  .auth-shell {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 100svh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .auth-stage { padding: 22px 22px 20px; min-height: 268px; }
+  .stage-core { gap: 10px; }
+  .hero-wheel { width: 118px; }
+  .hero-word { font-size: clamp(30px, 10vw, 46px); }
+  .stage-features { display: none; }
+  .login-card { padding: 26px 22px 30px; }
+}
+
+@media (max-height: 660px) and (min-width: 881px) {
+  .auth-shell { min-height: 0; }
+  .auth-stage { padding: 24px; }
+  .hero-wheel { width: 132px; }
+  .stage-features { display: none; }
+  .login-card { padding: 24px 30px; }
+  .login-sub { margin-bottom: 16px; }
+}
+
+/* ============================================================
+   Hareket azaltma tercihi — tüm animasyonlar durur
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .auth-bg-grid,
+  .auth-bg-glow,
+  .auth-shell,
+  .login-screen.launching .auth-shell,
+  .stage-eyebrow,
+  .se-dot,
+  .hero-streaks i,
+  .w-spin,
+  .w-blur,
+  .w-heat,
+  .hero-road::after,
+  .hero-word,
+  .hw-l,
+  .hw-o,
+  .hw-o .o-spin,
+  .hero-tagline,
+  .ht-text.swap,
+  .stage-features li,
+  .auth-panel::before,
+  .login-error.shake,
+  .as-dot,
+  #login-submit.busy .cta-spinner {
+    animation: none !important;
+  }
+  .hw-l { background-position: 0 0; }
+  .w-heat { opacity: 0.4; }
+  .hero-streaks { display: none; }
+  .stage-core { transition: none; transform: none !important; }
+  .login-input, .field .field-label, .f-line, #login-submit::after,
+  .login-demo-row .chip-btn { transition: none; }
+}

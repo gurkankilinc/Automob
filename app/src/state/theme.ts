@@ -10,7 +10,9 @@ export const theme = {
   /** Sayfa açılışında en erken çağrılmalı (flaş önlemek için main.ts importundan önce). */
   init(): Theme {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const current: Theme = stored === "dark" ? "dark" : "light"; // varsayılan: açık
+    // Varsayılan koyu: 3B sahne her zaman koyu olduğundan arayüzün geri kalanı da
+    // aynı dilde başlasın. Açık tema kullanıcı seçerse saklanır.
+    const current: Theme = stored === "light" ? "light" : "dark";
     apply(current);
     return current;
   },

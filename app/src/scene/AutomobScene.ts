@@ -4,7 +4,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import {
-  buildCarWireframe,
+  buildCarWireframe, ALL_REGION_IDS,
   type BodyType, type RegionId, type PaintZone, type OpenablePart, type PartDef,
 } from "./carWireframe";
 import {
@@ -277,7 +277,7 @@ export class AutomobScene {
 
     this.target.copy(this.carTarget);
     this.applySpherical(VIEWS.orbit.azimuth, VIEWS.orbit.polar, 7.4);
-    for (const id of ["motor", "fren", "amortisor"] as RegionId[]) {
+    for (const id of ALL_REGION_IDS) {
       this.setRegionMode(id, modes.get(id) ?? "off");
     }
     this.renderer.setClearColor(PALETTE.stageBg, 1);
@@ -454,6 +454,9 @@ export class AutomobScene {
         m.userData.region = def.id;
         return m;
       });
+      // Sahne grafiğine eklenmezlerse matrixWorld hiç güncellenmez (identity kalır) —
+      // vurgu çizgisi görünmez, tıklama küreleri dünya merkezinde test edilir.
+      group.add(normal.obj, glow, ...hitMeshes);
 
       this.regions.set(def.id, {
         def,
@@ -601,18 +604,37 @@ export class AutomobScene {
       { x: cfg.rearX, z: cfg.bodyHalfW },
       { x: cfg.rearX, z: -cfg.bodyHalfW },
     ];
-    const tireGeo = new THREE.CylinderGeometry(cfg.wheelR, cfg.wheelR, 0.22, 24);
-    const tireMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-    const rimGeo2 = new THREE.CylinderGeometry(cfg.wheelR * 0.72, cfg.wheelR * 0.72, 0.23, 16);
-    const rimMat2 = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 });
+    // Lastik ve jant kovanı açık uçlu silindir: yanaklar kapatılmadığından jant
+    // telleri ve fren diski içeriden okunur — tel kafes görünümüyle aynı dil.
+    const wW = cfg.wheelR * 0.62;
+    const tireGeo = new THREE.CylinderGeometry(cfg.wheelR, cfg.wheelR, wW, 28, 1, true);
+    const tireMat = new THREE.MeshStandardMaterial({
+      color: 0x0b1220, roughness: 0.95, metalness: 0.05, side: THREE.DoubleSide,
+    });
+    const barrelGeo = new THREE.CylinderGeometry(cfg.wheelR * 0.64, cfg.wheelR * 0.64, wW * 0.86, 20, 1, true);
+    const barrelMat = new THREE.MeshStandardMaterial({
+      color: 0x1b2432, metalness: 0.65, roughness: 0.45, side: THREE.DoubleSide,
+    });
+    const discGeo = new THREE.CylinderGeometry(cfg.wheelR * 0.57, cfg.wheelR * 0.57, 0.024, 24);
+    const discMat = new THREE.MeshStandardMaterial({ color: 0x5b6879, metalness: 0.9, roughness: 0.38 });
+    const hubGeo2 = new THREE.CylinderGeometry(cfg.wheelR * 0.2, cfg.wheelR * 0.2, 0.03, 14);
+    const hubMat2 = new THREE.MeshStandardMaterial({ color: 0x2a3444, metalness: 0.8, roughness: 0.3 });
 
     for (const w of wheelXList) {
+      const side = w.z > 0 ? 1 : -1;
       const wGroup = new THREE.Group();
-      wGroup.position.set(w.x, cfg.wheelY, w.z);
-      wGroup.rotation.x = Math.PI / 2;
+      // Tekerlek dış yüzü gövde hizasında; hacim içeri doğru uzanır.
+      wGroup.position.set(w.x, cfg.wheelY, w.z - (side * wW) / 2);
+      wGroup.rotation.x = Math.PI / 2;   // silindir ekseni +y → dünya +z
+
       const tire = new THREE.Mesh(tireGeo, tireMat);
-      const rim = new THREE.Mesh(rimGeo2, rimMat2);
-      wGroup.add(tire, rim);
+      const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+      const disc = new THREE.Mesh(discGeo, discMat);
+      disc.position.y = side * wW * 0.08;    // lastiğin ortasına yakın
+      const hub = new THREE.Mesh(hubGeo2, hubMat2);
+      hub.position.y = side * (wW / 2 - cfg.wheelR * 0.07);
+
+      wGroup.add(tire, barrel, disc, hub);
       group.add(wGroup);
     }
 
