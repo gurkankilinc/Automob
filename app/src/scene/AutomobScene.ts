@@ -668,33 +668,45 @@ export class AutomobScene {
       makePanelMesh("bagaj", tGeo, trunkDef.group, [0, 0, 0]);
     }
 
+    // Kapı sınırlarını cam ve kapı çizgilerinden hesaplayalım
+    const winXMin = Math.min(...cfg.window.map((p) => p[0]));
+    const winXMax = Math.max(...cfg.window.map((p) => p[0]));
+    const frontDoorLen = Math.abs(cfg.doorSeams[0] - winXMax);
+    const rearDoorLen = Math.abs(cfg.doorSeams[1] - cfg.doorSeams[0]);
+
     const doorFL = this.partsRt.get("doorFL");
-    if (doorFL) {
-      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
-      makePanelMesh("sol-on-kapi", dGeo, doorFL.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    if (doorFL && frontDoorLen > 0.1) {
+      const dGeo = new THREE.BoxGeometry(frontDoorLen, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sol-on-kapi", dGeo, doorFL.group, [frontDoorLen / 2, (cfg.beltY - cfg.sillY) / 2, 0]);
     }
 
     const doorFR = this.partsRt.get("doorFR");
-    if (doorFR) {
-      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
-      makePanelMesh("sag-on-kapi", dGeo, doorFR.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    if (doorFR && frontDoorLen > 0.1) {
+      const dGeo = new THREE.BoxGeometry(frontDoorLen, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sag-on-kapi", dGeo, doorFR.group, [frontDoorLen / 2, (cfg.beltY - cfg.sillY) / 2, 0]);
     }
 
     const doorRL = this.partsRt.get("doorRL");
-    if (doorRL) {
-      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
-      makePanelMesh("sol-arka-kapi", dGeo, doorRL.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    if (doorRL && rearDoorLen > 0.35) {
+      const dGeo = new THREE.BoxGeometry(rearDoorLen, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sol-arka-kapi", dGeo, doorRL.group, [rearDoorLen / 2, (cfg.beltY - cfg.sillY) / 2, 0]);
     }
 
     const doorRR = this.partsRt.get("doorRR");
-    if (doorRR) {
-      const dGeo = new THREE.BoxGeometry(0.8, (cfg.beltY - cfg.sillY), 0.05);
-      makePanelMesh("sag-arka-kapi", dGeo, doorRR.group, [0.4, (cfg.beltY - cfg.sillY) / 2, 0]);
+    if (doorRR && rearDoorLen > 0.35) {
+      const dGeo = new THREE.BoxGeometry(rearDoorLen, (cfg.beltY - cfg.sillY), 0.05);
+      makePanelMesh("sag-arka-kapi", dGeo, doorRR.group, [rearDoorLen / 2, (cfg.beltY - cfg.sillY) / 2, 0]);
     }
 
-    // Sabit Gövde Panelleri
-    const roofGeo = new THREE.BoxGeometry(1.6, 0.04, cfg.glassZ * 2);
-    makePanelMesh("tavan", roofGeo, group, [0, cfg.profile[4] ? cfg.profile[4][1] : 1.38, 0]);
+    // Sabit Gövde Panelleri — çatı yüksekliği ve konumu kabin pencere sınırlarından hesaplanır
+    // (profile[4] kamyon/tır'da kargo zemini olabileceğinden yanıltıcı)
+    const roofWinMaxY = Math.max(...cfg.window.map((p) => p[1])) + 0.02;
+    const roofWinMinX = Math.min(...cfg.window.map((p) => p[0]));
+    const roofWinMaxX = Math.max(...cfg.window.map((p) => p[0]));
+    const roofCenterX = (roofWinMinX + roofWinMaxX) / 2;
+    const roofLenX = Math.max(roofWinMaxX - roofWinMinX + 0.18, 0.5);
+    const roofGeo = new THREE.BoxGeometry(roofLenX, 0.04, cfg.glassZ * 2);
+    makePanelMesh("tavan", roofGeo, group, [roofCenterX, roofWinMaxY, 0]);
 
     const frontBumperGeo = new THREE.BoxGeometry(0.3, 0.4, cfg.bodyHalfW * 2);
     makePanelMesh("on-tampon", frontBumperGeo, group, [cfg.frontX + 0.5, cfg.sillY + 0.15, 0]);
