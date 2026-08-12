@@ -13,8 +13,47 @@ import {
 } from "./regions";
 import { Callouts } from "./callouts";
 import { PALETTE } from "./palette";
+import { openCatalog } from "../ui/catalogModal";
 
 export type ViewName = "yan" | "on" | "ust" | "orbit" | "motorBay";
+
+const REGION_DIAGNOSTICS: Record<RegionId, { title: string; icon: string; desc: string }> = {
+  motor: {
+    title: "MOTOR & SOĞUTMA BLOKU",
+    icon: "⚙️",
+    desc: "Silindir kapağı, emme manifoldu ve radyatör bloğu 3B görünümü. Yağ seviyesi, triger kayışı ve soğutma suyu sıvı analizi.",
+  },
+  fren: {
+    title: "FREN SİSTEMİ & HİDROLİK",
+    icon: "🛑",
+    desc: "Hava kanallı ön/arka fren diskleri, kaliper pabuçları ve fren hidroliği. Balata aşınma derinliği ve hidrolik basınç testi.",
+  },
+  amortisor: {
+    title: "SÜSPANSİYON & YAYLAR",
+    icon: "🌀",
+    desc: "Ön kule takozları, arka amortisör kovanları ve helezon yaylar. Darbe sönümleme performansı ve yağ sızıntı denetimi.",
+  },
+  lastik: {
+    title: "LASTİK & ALAŞIM JANTLAR",
+    icon: "🛞",
+    desc: "Performans kauçuk lastik kovanları ve hafif alaşım jantlar. Diş derinliği, hava basıncı ve rot-balans ayarı.",
+  },
+  elektrik: {
+    title: "AKÜ & ŞARJ DEVRESİ",
+    icon: "⚡",
+    desc: "12V starter akü ünitesi, ana sigorta kutusu ve alternatör. Voltaj kararlılığı ve şarj kapasitesi analizi.",
+  },
+  egzoz: {
+    title: "EGZOZ SİSTEMİ & EMİSYON",
+    icon: "💨",
+    desc: "Paslanmaz çelik egzoz manifold boruları, susturucu ve katalizör. Emisyon ve gaz kaçak denetimi.",
+  },
+  klima: {
+    title: "KLİMA & İKLİMLENDİRME",
+    icon: "❄️",
+    desc: "R134a/R1234yf kompresör pompası, kondenser radyatörü ve polen filtresi. Soğutma verimi ve gaz devresi testi.",
+  },
+};
 
 interface ViewDef {
   azimuth: number;
@@ -92,6 +131,15 @@ export class AutomobScene {
   } | null = null;
   private downAt: { x: number; y: number } | null = null;
 
+  private compGroups = new Map<RegionId, THREE.Group>();
+  private wheelMeshGroups: THREE.Group[] = [];
+  private activeInspectRegion: RegionId | null = null;
+  public onInspectRegionChanged?: (id: RegionId | null) => void;
+  public get activeRegion(): RegionId | null { return this.activeInspectRegion; }
+  private hudCardEl: HTMLElement | null = null;
+  private driveInAnim = { active: true, startTime: 0, duration: 2400, startX: -12.0 };
+  private skidMesh: LineSegments2 | null = null;
+
   constructor(
     private container: HTMLElement,
     glCanvas: HTMLCanvasElement,
@@ -102,6 +150,8 @@ export class AutomobScene {
       canvas: glCanvas, antialias: true, alpha: true, preserveDrawingBuffer: true,
     });
     this.renderer.setClearColor(0x000000, 0);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 60);
     this.applySpherical(VIEWS.orbit.azimuth, VIEWS.orbit.polar, 7.2);
@@ -127,12 +177,16 @@ export class AutomobScene {
       glCanvas.classList.remove("dragging");
     });
 
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.85);
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4);
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.75);
+    const dirLight1 = new THREE.DirectionalLight(0xfffaed, 1.5);
     dirLight1.position.set(6, 12, 8);
-    const dirLight2 = new THREE.DirectionalLight(0x7090c0, 0.7);
-    dirLight2.position.set(-6, -4, -8);
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x111827, 0.6);
+    dirLight1.castShadow = true;
+    dirLight1.shadow.mapSize.width = 1024;
+    dirLight1.shadow.mapSize.height = 1024;
+
+    const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.95);
+    dirLight2.position.set(-8, 5, -8);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x0f172a, 0.6);
     this.scene.add(ambLight, dirLight1, dirLight2, hemiLight);
 
     const grid = new THREE.GridHelper(8, 10, PALETTE.gridCenter, PALETTE.grid);
@@ -141,7 +195,17 @@ export class AutomobScene {
     gm.opacity = 0.55;
     this.scene.add(grid);
 
+    // Zemin Gölge Düzlemi (Shadow Receiver)
+    const shadowGeo = new THREE.PlaneGeometry(10, 10);
+    const shadowMat = new THREE.ShadowMaterial({ opacity: 0.4 });
+    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = -0.01;
+    shadowMesh.receiveShadow = true;
+    this.scene.add(shadowMesh);
+
     this.callouts = new Callouts(container, overlayCanvas);
+    this.initHudCard();
     this.buildCar(body);
 
     glCanvas.addEventListener("pointerdown", (e) => {
@@ -157,6 +221,98 @@ export class AutomobScene {
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
     this.renderer.setAnimationLoop((t) => this.frame(t));
+  }
+
+  // ---------- 3B Teşhis & Parça Yükseltme API ----------
+
+  private initHudCard(): void {
+    let card = this.container.querySelector<HTMLElement>(".inspect-hud-card");
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "inspect-hud-card hidden";
+      card.innerHTML = `
+        <div class="inspect-hud-header">
+          <div class="inspect-hud-title">
+            <span class="hud-icon">⚙️</span>
+            <span class="hud-name">PARÇA TEŞHİSİ</span>
+          </div>
+          <button class="inspect-hud-close" type="button" title="Kapat">✕</button>
+        </div>
+        <div class="inspect-status-pill ok">● SAĞLIKLI</div>
+        <div class="inspect-hud-body">Sistem teşhisi yapılıyor...</div>
+        <div class="inspect-hud-actions">
+          <button class="btn-cat" type="button">🛒 KATALOĞU AÇ</button>
+          <button class="btn-drop" type="button">⬇ YERİNE İNDİR</button>
+        </div>
+      `;
+      this.container.appendChild(card);
+
+      card.querySelector(".inspect-hud-close")?.addEventListener("click", () => {
+        this.inspectRegion(null);
+      });
+      card.querySelector(".btn-drop")?.addEventListener("click", () => {
+        this.inspectRegion(null);
+      });
+      card.querySelector(".btn-cat")?.addEventListener("click", () => {
+        if (this.activeInspectRegion) {
+          openCatalog(this.activeInspectRegion);
+        }
+      });
+    }
+    this.hudCardEl = card;
+  }
+
+  public inspectRegion(id: RegionId | null): void {
+    if (this.activeInspectRegion === id) {
+      this.activeInspectRegion = null;
+    } else {
+      this.activeInspectRegion = id;
+      if (id === "motor") this.setPartOpen("hood", true);
+    }
+    if (this.onInspectRegionChanged) this.onInspectRegionChanged(this.activeInspectRegion);
+    this.updateHudCard();
+  }
+
+  public updateHudCard(): void {
+    if (!this.hudCardEl) return;
+    if (!this.activeInspectRegion) {
+      this.hudCardEl.classList.add("hidden");
+      return;
+    }
+
+    const diag = REGION_DIAGNOSTICS[this.activeInspectRegion];
+    if (!diag) return;
+
+    const iconEl = this.hudCardEl.querySelector(".hud-icon");
+    const nameEl = this.hudCardEl.querySelector(".hud-name");
+    const pillEl = this.hudCardEl.querySelector<HTMLElement>(".inspect-status-pill");
+    const bodyEl = this.hudCardEl.querySelector(".inspect-hud-body");
+
+    if (iconEl) iconEl.textContent = diag.icon;
+    if (nameEl) nameEl.textContent = diag.title;
+    if (bodyEl) bodyEl.textContent = diag.desc;
+
+    const mode = this.getMode(this.activeInspectRegion);
+    if (pillEl) {
+      pillEl.className = "inspect-status-pill " + (mode === "done" ? "done" : mode === "suggest" ? "suggest" : "ok");
+      pillEl.textContent = mode === "done" ? "● İŞLEM YAPILDI (DEĞİŞTİ)" : mode === "suggest" ? "⚠️ BAKIM ÖNERİLİYOR" : "✓ SİSTEM SAĞLIKLI";
+    }
+
+    this.hudCardEl.classList.remove("hidden");
+  }
+
+  private getCompGroup(id: RegionId, parentGroup: THREE.Group): THREE.Group {
+    let cg = this.compGroups.get(id);
+    if (!cg) {
+      cg = new THREE.Group();
+      const def = this.defs.find((d) => d.id === id);
+      if (def) {
+        cg.position.copy(def.anchor);
+      }
+      this.compGroups.set(id, cg);
+      parentGroup.add(cg);
+    }
+    return cg;
   }
 
   // ---------- Dış API ----------
@@ -363,6 +519,35 @@ export class AutomobScene {
     this.defs = getRegionDefs(car.cfg);
     const group = new THREE.Group();
 
+    this.compGroups.clear();
+    this.wheelMeshGroups = [];
+    this.driveInAnim = {
+      active: !this.reduced,
+      startTime: performance.now(),
+      duration: 2400,
+      startX: -12.0,
+    };
+    if (this.driveInAnim.active) {
+      group.position.x = -12.0;
+    }
+
+    // Skid marks on floor
+    const skidPos = [
+      -5.0, 0.005, -car.cfg.bodyHalfW, 0.1, 0.005, -car.cfg.bodyHalfW,
+      -5.0, 0.005, car.cfg.bodyHalfW, 0.1, 0.005, car.cfg.bodyHalfW,
+    ];
+    const skidGeo = new LineSegmentsGeometry();
+    skidGeo.setPositions(skidPos);
+    const skidMat = new LineMaterial({
+      color: 0x1e293b, linewidth: 3.5, transparent: true, opacity: 0,
+    });
+    skidMat.resolution.set(this.container.clientWidth || 1, this.container.clientHeight || 1);
+    this.carMaterials.push(skidMat);
+    const skidMesh = new LineSegments2(skidGeo, skidMat);
+    skidMesh.computeLineDistances();
+    group.add(skidMesh);
+    this.skidMesh = skidMesh;
+
     // Motor bölmesi kamera hedefi (kaput açık inceleme modu için)
     const e = car.cfg.engine;
     this.bayTarget.set((e.x0 + e.x1) / 2 + 0.1, e.y1 + 0.05, 0);
@@ -454,9 +639,13 @@ export class AutomobScene {
         m.userData.region = def.id;
         return m;
       });
-      // Sahne grafiğine eklenmezlerse matrixWorld hiç güncellenmez (identity kalır) —
-      // vurgu çizgisi görünmez, tıklama küreleri dünya merkezinde test edilir.
-      group.add(normal.obj, glow, ...hitMeshes);
+
+      const compGroup = this.getCompGroup(def.id, group);
+      normal.obj.position.sub(def.anchor);
+      glow.position.sub(def.anchor);
+      for (const hm of hitMeshes) hm.position.sub(def.anchor);
+
+      compGroup.add(normal.obj, glow, ...hitMeshes);
 
       this.regions.set(def.id, {
         def,
@@ -470,47 +659,52 @@ export class AutomobScene {
       if (!this.modes.has(def.id)) this.modes.set(def.id, "off");
     }
 
-    this.buildVolumetricSolidMeshes(car, group);
+    this.buildVolumetricSolidMeshes(body, car, group);
 
     this.scene.add(group);
     this.carGroup = group;
   }
 
-  private buildVolumetricSolidMeshes(car: ReturnType<typeof buildCarWireframe>, group: THREE.Group): void {
+  private buildVolumetricSolidMeshes(body: BodyType, car: ReturnType<typeof buildCarWireframe>, group: THREE.Group): void {
     const cfg = car.cfg;
     const L = cfg.lift;
     const e = cfg.engine;
 
     // 1. MOTOR (Solid Metallic Blue Engine Block + Head + Radiator)
+    const motorGroup = this.getCompGroup("motor", group);
+    const mAnchor = motorGroup.position.clone();
+
     const engineGeo = new THREE.BoxGeometry(e.x1 - e.x0, e.y1 - e.y0, e.halfZ * 1.8);
     const engineMat = new THREE.MeshStandardMaterial({
-      color: 0x2563eb, metalness: 0.65, roughness: 0.25, transparent: true, opacity: 0.9,
+      color: 0x2563eb, metalness: 0.75, roughness: 0.2, transparent: true, opacity: 0.92,
     });
     const engineMesh = new THREE.Mesh(engineGeo, engineMat);
-    engineMesh.position.set((e.x0 + e.x1) / 2, (e.y0 + e.y1) / 2, 0);
-    group.add(engineMesh);
+    engineMesh.castShadow = true;
+    engineMesh.position.set((e.x0 + e.x1) / 2 - mAnchor.x, (e.y0 + e.y1) / 2 - mAnchor.y, 0 - mAnchor.z);
+    motorGroup.add(engineMesh);
 
     const headGeo = new THREE.BoxGeometry((e.x1 - e.x0) * 0.85, 0.12, e.halfZ * 1.4);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 });
+    const headMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.25 });
     const headMesh = new THREE.Mesh(headGeo, headMat);
-    headMesh.position.set((e.x0 + e.x1) / 2, e.y1 + 0.06, 0);
-    group.add(headMesh);
+    headMesh.castShadow = true;
+    headMesh.position.set((e.x0 + e.x1) / 2 - mAnchor.x, e.y1 + 0.06 - mAnchor.y, 0 - mAnchor.z);
+    motorGroup.add(headMesh);
 
     const radX = Math.min(cfg.frontX - 0.1, e.x1 + 0.22);
     const radGeo = new THREE.BoxGeometry(0.08, e.y1 - e.y0 + 0.1, e.halfZ * 1.8);
     const radMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.5 });
     const radMesh = new THREE.Mesh(radGeo, radMat);
-    radMesh.position.set(radX, (e.y0 + e.y1) / 2, 0);
-    group.add(radMesh);
+    radMesh.position.set(radX - mAnchor.x, (e.y0 + e.y1) / 2 - mAnchor.y, 0 - mAnchor.z);
+    motorGroup.add(radMesh);
 
     // 2. ŞANZIMAN (Solid Titanium Gearbox Casing)
     const gboxGeo = new THREE.BoxGeometry(0.55, 0.38, e.halfZ * 1.2);
     const gboxMat = new THREE.MeshStandardMaterial({
-      color: 0x64748b, metalness: 0.75, roughness: 0.35, transparent: true, opacity: 0.9,
+      color: 0x64748b, metalness: 0.8, roughness: 0.3, transparent: true, opacity: 0.9,
     });
     const gboxMesh = new THREE.Mesh(gboxGeo, gboxMat);
-    gboxMesh.position.set(e.x0 - 0.28, e.y0 + 0.08, 0);
-    group.add(gboxMesh);
+    gboxMesh.position.set(e.x0 - 0.28 - mAnchor.x, e.y0 + 0.08 - mAnchor.y, 0 - mAnchor.z);
+    motorGroup.add(gboxMesh);
 
     // 3. ŞASİ (Solid Steel Subframe Rails & Crossmembers)
     const railLen = Math.abs(cfg.frontX - cfg.rearX) + 1.0;
@@ -530,82 +724,177 @@ export class AutomobScene {
       group.add(crossMesh);
     }
 
-    // 4. VİTES (Gear Shift Lever + Knob + Boot)
-    const bootGeo = new THREE.ConeGeometry(0.075, 0.06, 6);
-    const bootMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
-    const bootMesh = new THREE.Mesh(bootGeo, bootMat);
-    bootMesh.position.set(0.58, cfg.sillY + 0.07 + L, 0);
+    // 4. AMORTİSÖRLER & SÜSPANSİYON
+    const shockGroup = this.getCompGroup("amortisor", group);
+    const sAnchor = shockGroup.position.clone();
+    const strutGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.42, 12);
+    const strutMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+    const coilGeo = new THREE.TorusGeometry(0.07, 0.015, 8, 16);
+    const coilMat = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.7, roughness: 0.3 });
 
-    const leverGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.18, 12);
-    const leverMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
-    const leverMesh = new THREE.Mesh(leverGeo, leverMat);
-    leverMesh.position.set(0.56, cfg.sillY + 0.16 + L, 0);
-    leverMesh.rotation.z = -0.15;
+    for (const sx of [cfg.frontX, cfg.rearX]) {
+      for (const sz of [-cfg.bodyHalfW + 0.12, cfg.bodyHalfW - 0.12]) {
+        const strut = new THREE.Mesh(strutGeo, strutMat);
+        strut.position.set(sx - sAnchor.x, cfg.wheelY + 0.22 - sAnchor.y, sz - sAnchor.z);
+        const coil = new THREE.Mesh(coilGeo, coilMat);
+        coil.rotation.x = Math.PI / 2;
+        coil.position.set(sx - sAnchor.x, cfg.wheelY + 0.22 - sAnchor.y, sz - sAnchor.z);
+        shockGroup.add(strut, coil);
+      }
+    }
 
-    const knobGeo = new THREE.SphereGeometry(0.042, 16, 16);
-    const knobMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
-    const knobMesh = new THREE.Mesh(knobGeo, knobMat);
-    knobMesh.position.set(0.545, cfg.sillY + 0.245 + L, 0);
-    group.add(bootMesh, leverMesh, knobMesh);
+    // 5. AKÜ & ELEKTRİK SİSTEMİ
+    const elecGroup = this.getCompGroup("elektrik", group);
+    const elAnchor = elecGroup.position.clone();
+    const battGeo = new THREE.BoxGeometry(0.28, 0.22, 0.32);
+    const battMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+    const battMesh = new THREE.Mesh(battGeo, battMat);
+    battMesh.position.set(e.x0 + 0.13 - elAnchor.x, e.y0 + 0.25 - elAnchor.y, -(e.halfZ + 0.2) - elAnchor.z);
+    const termGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.04, 8);
+    const termMatR = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+    const termMatB = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+    const termR = new THREE.Mesh(termGeo, termMatR);
+    termR.position.set(e.x0 + 0.08 - elAnchor.x, e.y0 + 0.38 - elAnchor.y, -(e.halfZ + 0.28) - elAnchor.z);
+    const termB = new THREE.Mesh(termGeo, termMatB);
+    termB.position.set(e.x0 + 0.18 - elAnchor.x, e.y0 + 0.38 - elAnchor.y, -(e.halfZ + 0.12) - elAnchor.z);
+    elecGroup.add(battMesh, termR, termB);
 
-    // 5. DİREKSİYON (Steering Wheel - LHD Driver Side, z = -0.34)
-    const wheelGroup = new THREE.Group();
-    wheelGroup.position.set(0.72, 0.88 + L, -0.34);
-    wheelGroup.rotation.z = -0.42;
+    // 6. KLİMA KONDENSERİ & KOMPRESÖR
+    const acGroup = this.getCompGroup("klima", group);
+    const acAnchor = acGroup.position.clone();
+    const compGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.22, 12);
+    const compMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 });
+    const compMesh = new THREE.Mesh(compGeo, compMat);
+    compMesh.rotation.z = Math.PI / 2;
+    compMesh.position.set(e.x1 + 0.02 - acAnchor.x, e.y0 + 0.12 - acAnchor.y, -0.32 - acAnchor.z);
+    acGroup.add(compMesh);
 
-    const rimGeo = new THREE.TorusGeometry(0.135, 0.018, 12, 24);
-    const stMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
-    const rimMesh = new THREE.Mesh(rimGeo, stMat);
+    // 7. EGZOZ SİSTEMİ
+    const exhGroup = this.getCompGroup("egzoz", group);
+    const exAnchor = exhGroup.position.clone();
+    const pipeGeo = new THREE.CylinderGeometry(0.035, 0.035, Math.abs(cfg.frontX - cfg.rearX), 12);
+    const pipeMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.85, roughness: 0.3 });
+    const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+    pipeMesh.rotation.z = Math.PI / 2;
+    pipeMesh.position.set((cfg.frontX + cfg.rearX) / 2 - exAnchor.x, cfg.sillY - 0.1 - exAnchor.y, -0.34 - exAnchor.z);
 
-    const hubGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.03, 16);
-    const hubMesh = new THREE.Mesh(hubGeo, stMat);
-    hubMesh.rotation.x = Math.PI / 2;
+    const mufGeo = new THREE.BoxGeometry(0.48, 0.2, 0.32);
+    const mufMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.25 });
+    const mufMesh = new THREE.Mesh(mufGeo, mufMat);
+    mufMesh.position.set(cfg.rearX - 0.375 - exAnchor.x, cfg.sillY - 0.12 - exAnchor.y, -0.34 - exAnchor.z);
+    exhGroup.add(pipeMesh, mufMesh);
 
-    const colGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.24, 12);
-    const colMesh = new THREE.Mesh(colGeo, stMat);
-    colMesh.position.set(0.1, -0.06, 0);
-    colMesh.rotation.z = 0.5;
-
-    wheelGroup.add(rimMesh, hubMesh, colMesh);
-    group.add(wheelGroup);
-
-    // 6. KOLTUKLAR (Solid Cushions & Backrests)
+    // 8. KABİN İÇİ & KOLTUKLAR (Kasa tipine göre özel: Motosiklet/Otobüs/Tır/Otomobil)
     const seatMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75 });
-    const makeSeat = (cx: number, cz: number) => {
-      const sGroup = new THREE.Group();
-      sGroup.position.set(cx, 0.52 + L, cz);
-      const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.1, 0.42), seatMat);
-      cushion.position.set(0.18, 0, 0);
-      const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.54, 0.42), seatMat);
-      backrest.position.set(-0.06, 0.27, 0);
-      backrest.rotation.z = -0.12;
-      const headrest = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.2), seatMat);
-      headrest.position.set(-0.1, 0.6, 0);
-      sGroup.add(cushion, backrest, headrest);
-      group.add(sGroup);
-    };
-    makeSeat(0.1, -0.34);  // Sol Sürücü (LHD)
-    makeSeat(0.1, 0.34);   // Sağ Yolcu
-    makeSeat(-0.72, -0.34);
-    makeSeat(-0.72, 0.34);
 
-    // 7. TORPİDO (Dashboard Block)
-    const dashX = 0.98;
-    const dashGeo = new THREE.BoxGeometry(0.24, 0.28, (cfg.bodyHalfW - 0.1) * 2);
-    const dashMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
-    const dashMesh = new THREE.Mesh(dashGeo, dashMat);
-    dashMesh.position.set(dashX, 0.83 + L, 0);
-    group.add(dashMesh);
+    if (body === "motor") {
+      // Motosiklet: Tekerlekler Z=0 üzerinde 2 adet inline; sele + yakıt deposu
+      const seatGroup = new THREE.Group();
+      seatGroup.position.set(-0.2, 0.62 + L, 0);
+      const seatMesh = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 0.22), seatMat);
+      const tankMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.26), chassisMat);
+      tankMesh.position.set(0.45, 0.1, 0);
+      seatGroup.add(seatMesh, tankMesh);
+      group.add(seatGroup);
+    } else {
+      // Vites
+      const bootGeo = new THREE.ConeGeometry(0.075, 0.06, 6);
+      const bootMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
+      const bootMesh = new THREE.Mesh(bootGeo, bootMat);
+      bootMesh.position.set(0.58, cfg.sillY + 0.07 + L, 0);
 
-    // 8. TEKERLEKLER & LASTİKLER (Solid Rubber & Alloy Wheels)
-    const wheelXList = [
-      { x: cfg.frontX, z: cfg.bodyHalfW },
-      { x: cfg.frontX, z: -cfg.bodyHalfW },
-      { x: cfg.rearX, z: cfg.bodyHalfW },
-      { x: cfg.rearX, z: -cfg.bodyHalfW },
-    ];
-    // Lastik ve jant kovanı açık uçlu silindir: yanaklar kapatılmadığından jant
-    // telleri ve fren diski içeriden okunur — tel kafes görünümüyle aynı dil.
+      const leverGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.18, 12);
+      const leverMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
+      const leverMesh = new THREE.Mesh(leverGeo, leverMat);
+      leverMesh.position.set(0.56, cfg.sillY + 0.16 + L, 0);
+      leverMesh.rotation.z = -0.15;
+
+      const knobGeo = new THREE.SphereGeometry(0.042, 16, 16);
+      const knobMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+      const knobMesh = new THREE.Mesh(knobGeo, knobMat);
+      knobMesh.position.set(0.545, cfg.sillY + 0.245 + L, 0);
+      group.add(bootMesh, leverMesh, knobMesh);
+
+      // Direksiyon
+      const wheelGroup = new THREE.Group();
+      wheelGroup.position.set(0.72, 0.88 + L, -0.34);
+      wheelGroup.rotation.z = -0.42;
+
+      const rimGeo = new THREE.TorusGeometry(0.135, 0.018, 12, 24);
+      const stMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+      const rimMesh = new THREE.Mesh(rimGeo, stMat);
+
+      const hubGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.03, 16);
+      const hubMesh = new THREE.Mesh(hubGeo, stMat);
+      hubMesh.rotation.x = Math.PI / 2;
+
+      const colGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.24, 12);
+      const colMesh = new THREE.Mesh(colGeo, stMat);
+      colMesh.position.set(0.1, -0.06, 0);
+      colMesh.rotation.z = 0.5;
+
+      wheelGroup.add(rimMesh, hubMesh, colMesh);
+      group.add(wheelGroup);
+
+      // Koltuk Düzeni
+      const makeSeat = (cx: number, cz: number) => {
+        const sGroup = new THREE.Group();
+        sGroup.position.set(cx, 0.52 + L, cz);
+        const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.1, 0.42), seatMat);
+        cushion.position.set(0.18, 0, 0);
+        const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.54, 0.42), seatMat);
+        backrest.position.set(-0.06, 0.27, 0);
+        backrest.rotation.z = -0.12;
+        const headrest = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.2), seatMat);
+        headrest.position.set(-0.1, 0.6, 0);
+        sGroup.add(cushion, backrest, headrest);
+        group.add(sGroup);
+      };
+
+      if (body === "otobus") {
+        // Otobüs: Koridor boyunca çoklu yolcu koltukları
+        for (let sx = -2.4; sx <= 1.4; sx += 0.65) {
+          makeSeat(sx, -0.44);
+          makeSeat(sx, 0.44);
+        }
+      } else if (body === "tir") {
+        // Tır: Çekici kupa içinde sadece 2 ön koltuk (Sürücü & Yolcu)
+        makeSeat(1.0, -0.38);
+        makeSeat(1.0, 0.38);
+      } else {
+        // Otomobil / Minibüs / Kamyon koltukları (4 koltuk)
+        makeSeat(0.1, -0.34);
+        makeSeat(0.1, 0.34);
+        makeSeat(-0.72, -0.34);
+        makeSeat(-0.72, 0.34);
+      }
+
+      // Torpido
+      const dashX = 0.98;
+      const dashGeo = new THREE.BoxGeometry(0.24, 0.28, (cfg.bodyHalfW - 0.1) * 2);
+      const dashMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+      const dashMesh = new THREE.Mesh(dashGeo, dashMat);
+      dashMesh.position.set(dashX, 0.83 + L, 0);
+      group.add(dashMesh);
+    }
+
+    // Tır dorse kaldırıldı (çıplak çekici)
+
+
+    // 9. TEKERLEKLER & FREN DİSKLERİ
+    const brakeGroup = this.getCompGroup("fren", group);
+    const lastikGroup = this.getCompGroup("lastik", group);
+    const bAnchor = brakeGroup.position.clone();
+    const lAnchor = lastikGroup.position.clone();
+
+    const wheelXList = body === "motor"
+      ? [{ x: cfg.frontX, z: 0 }, { x: cfg.rearX, z: 0 }]
+      : [
+        { x: cfg.frontX, z: cfg.bodyHalfW },
+        { x: cfg.frontX, z: -cfg.bodyHalfW },
+        { x: cfg.rearX, z: cfg.bodyHalfW },
+        { x: cfg.rearX, z: -cfg.bodyHalfW },
+      ];
     const wW = cfg.wheelR * 0.62;
     const tireGeo = new THREE.CylinderGeometry(cfg.wheelR, cfg.wheelR, wW, 28, 1, true);
     const tireMat = new THREE.MeshStandardMaterial({
@@ -616,33 +905,38 @@ export class AutomobScene {
       color: 0x1b2432, metalness: 0.65, roughness: 0.45, side: THREE.DoubleSide,
     });
     const discGeo = new THREE.CylinderGeometry(cfg.wheelR * 0.57, cfg.wheelR * 0.57, 0.024, 24);
-    const discMat = new THREE.MeshStandardMaterial({ color: 0x5b6879, metalness: 0.9, roughness: 0.38 });
-    const hubGeo2 = new THREE.CylinderGeometry(cfg.wheelR * 0.2, cfg.wheelR * 0.2, 0.03, 14);
-    const hubMat2 = new THREE.MeshStandardMaterial({ color: 0x2a3444, metalness: 0.8, roughness: 0.3 });
+    const discMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.92, roughness: 0.2 });
+    const calGeo = new THREE.BoxGeometry(0.1, 0.12, 0.08);
+    const calMat = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.6, roughness: 0.3 });
 
     for (const w of wheelXList) {
-      const side = w.z > 0 ? 1 : -1;
+      const side = w.z > 0 ? 1 : w.z < 0 ? -1 : 0;
       const wGroup = new THREE.Group();
-      // Tekerlek dış yüzü gövde hizasında; hacim içeri doğru uzanır.
-      wGroup.position.set(w.x, cfg.wheelY, w.z - (side * wW) / 2);
-      wGroup.rotation.x = Math.PI / 2;   // silindir ekseni +y → dünya +z
+      wGroup.position.set(w.x - lAnchor.x, cfg.wheelY - lAnchor.y, w.z - (side * wW) / 2 - lAnchor.z);
+      wGroup.rotation.x = Math.PI / 2;
 
       const tire = new THREE.Mesh(tireGeo, tireMat);
       const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-      const disc = new THREE.Mesh(discGeo, discMat);
-      disc.position.y = side * wW * 0.08;    // lastiğin ortasına yakın
-      const hub = new THREE.Mesh(hubGeo2, hubMat2);
-      hub.position.y = side * (wW / 2 - cfg.wheelR * 0.07);
+      wGroup.add(tire, barrel);
+      lastikGroup.add(wGroup);
+      this.wheelMeshGroups.push(wGroup);
 
-      wGroup.add(tire, barrel, disc, hub);
-      group.add(wGroup);
+      const dGroup = new THREE.Group();
+      dGroup.position.set(w.x - bAnchor.x, cfg.wheelY - bAnchor.y, w.z - (side * wW) / 2 - bAnchor.z);
+      dGroup.rotation.x = Math.PI / 2;
+      const disc = new THREE.Mesh(discGeo, discMat);
+      disc.position.y = (side || 1) * wW * 0.08;
+      const cal = new THREE.Mesh(calGeo, calMat);
+      cal.position.set(0.08, (side || 1) * wW * 0.08, 0.04);
+      dGroup.add(disc, cal);
+      brakeGroup.add(dGroup);
     }
 
-    // 9. KAPORTA HACMİ (Solid Volumetric Panels for Kaput, Kapılar, Bagaj, Gövde)
+    // 10. KAPORTA HACMİ (Solid Volumetric Panels)
     this.panelMeshes.clear();
     const makePanelMesh = (id: string, geo: THREE.BufferGeometry, parent: THREE.Group, pos?: [number, number, number]) => {
       const mat = new THREE.MeshStandardMaterial({
-        color: 0x475569, metalness: 0.3, roughness: 0.35, transparent: true, opacity: 0.65,
+        color: 0x475569, metalness: 0.35, roughness: 0.3, transparent: true, opacity: 0.65,
       });
       const mesh = new THREE.Mesh(geo, mat);
       if (pos) mesh.position.set(pos[0], pos[1], pos[2]);
@@ -668,8 +962,6 @@ export class AutomobScene {
       makePanelMesh("bagaj", tGeo, trunkDef.group, [0, 0, 0]);
     }
 
-    // Kapı sınırlarını cam ve kapı çizgilerinden hesaplayalım
-    const winXMin = Math.min(...cfg.window.map((p) => p[0]));
     const winXMax = Math.max(...cfg.window.map((p) => p[0]));
     const frontDoorLen = Math.abs(cfg.doorSeams[0] - winXMax);
     const rearDoorLen = Math.abs(cfg.doorSeams[1] - cfg.doorSeams[0]);
@@ -698,8 +990,6 @@ export class AutomobScene {
       makePanelMesh("sag-arka-kapi", dGeo, doorRR.group, [rearDoorLen / 2, (cfg.beltY - cfg.sillY) / 2, 0]);
     }
 
-    // Sabit Gövde Panelleri — çatı yüksekliği ve konumu kabin pencere sınırlarından hesaplanır
-    // (profile[4] kamyon/tır'da kargo zemini olabileceğinden yanıltıcı)
     const roofWinMaxY = Math.max(...cfg.window.map((p) => p[1])) + 0.02;
     const roofWinMinX = Math.min(...cfg.window.map((p) => p[0]));
     const roofWinMaxX = Math.max(...cfg.window.map((p) => p[0]));
@@ -738,6 +1028,8 @@ export class AutomobScene {
     this.regions.clear();
     this.partsRt.clear();
     this.partHits = [];
+    this.compGroups.clear();
+    this.wheelMeshGroups = [];
   }
 
   private pick(e: PointerEvent): void {
@@ -753,9 +1045,6 @@ export class AutomobScene {
 
     if (partHit) {
       const partId = partHit.object.userData.part as OpenablePart;
-      // Kapalı bir pano altındaki her şeyi fiziksel olarak örter: kapak kapalıyken
-      // motor/bagaj içine tıklanamaz, önce pano açılır. Pano açıkken normal
-      // derinlik sırası geçerlidir (kameraya en yakın olan kazanır).
       const closedCoversAll = !this.isPartOpen(partId);
       if (closedCoversAll || !regionHit || partHit.distance <= regionHit.distance) {
         const open = this.togglePart(partId);
@@ -764,7 +1053,9 @@ export class AutomobScene {
       }
     }
     if (regionHit) {
-      this.onRegionClicked?.(regionHit.object.userData.region as RegionId);
+      const rId = regionHit.object.userData.region as RegionId;
+      this.inspectRegion(rId);
+      this.onRegionClicked?.(rId);
     }
   }
 
@@ -795,6 +1086,53 @@ export class AutomobScene {
       if (k >= 1) this.tween = null;
     }
 
+    // 1. Araba giriş (Drive-In) animasyonu
+    if (this.driveInAnim.active && this.carGroup) {
+      const elapsed = (t - this.driveInAnim.startTime) / this.driveInAnim.duration;
+      if (elapsed >= 1) {
+        this.driveInAnim.active = false;
+        this.carGroup.position.x = 0;
+        this.carGroup.rotation.z = 0;
+        if (this.skidMesh) (this.skidMesh.material as LineMaterial).opacity = 0;
+      } else {
+        const e = 1 - Math.pow(1 - elapsed, 3.5);
+        const currX = this.driveInAnim.startX * (1 - e);
+        const deltaX = currX - this.carGroup.position.x;
+        this.carGroup.position.x = currX;
+
+        for (const wg of this.wheelMeshGroups) {
+          wg.rotateY(deltaX * 2.2);
+        }
+
+        if (this.skidMesh && elapsed > 0.35) {
+          (this.skidMesh.material as LineMaterial).opacity = Math.sin(((elapsed - 0.35) / 0.65) * Math.PI) * 0.6;
+        }
+
+        if (elapsed > 0.5) {
+          this.carGroup.rotation.z = Math.sin((elapsed - 0.5) * Math.PI * 2) * -0.018 * (1 - elapsed);
+        }
+      }
+    }
+
+    // 2. Yükselen 3B parça inceleme animasyonu (Full 360° Continuous In-Place Rotation)
+    for (const [rId, cGroup] of this.compGroups) {
+      const isTarget = this.activeInspectRegion === rId;
+      const def = this.defs.find((d) => d.id === rId);
+      const anchorY = def ? def.anchor.y : 0;
+      const targetY = isTarget ? anchorY + 1.8 : anchorY;
+
+      // Smooth Y elevation
+      cGroup.position.y += (targetY - cGroup.position.y) * 0.12;
+
+      if (isTarget) {
+        // Tam 360 derece yerinde (in-place) kesintisiz sonsuz dönüş!
+        cGroup.rotation.y += 0.014;
+      } else {
+        // Yerine inince açıyı yumuşakça varsayılana getir
+        cGroup.rotation.y += (0 - cGroup.rotation.y) * 0.12;
+      }
+    }
+
     // Açılır parçaların menteşe animasyonu
     for (const rt of this.partsRt.values()) {
       const goal = rt.open ? 1 : 0;
@@ -807,7 +1145,7 @@ export class AutomobScene {
     }
 
     this.controls.autoRotate =
-      !this.reduced && !this.tween && t - this.lastInteract > 4000;
+      !this.reduced && !this.tween && !this.activeInspectRegion && t - this.lastInteract > 4000;
     this.controls.update();
 
     // öneri durumundaki bölgelerde nabız

@@ -87,7 +87,7 @@ function spinFrame(ts: number): void {
   // Hızı yumuşat (exponential smoothing)
   const alpha = 1 - Math.exp(-dt * 5);
   currentDps += (targetDps - currentDps) * alpha;
-  angle = (angle + currentDps * dt) % 360;
+  angle += currentDps * dt;
   // Tüm .w-spin ve .w-blur + .o-spin + .hero-road::after elementlerine uygula
   if (stageEl) {
     const spinEls = stageEl.querySelectorAll<SVGElement>(".w-spin");

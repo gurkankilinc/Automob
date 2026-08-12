@@ -345,11 +345,22 @@
         <button class="cam active" data-view="orbit">3D Orbit</button>
         <button class="cam" data-view="motorBay">Motor Bölmesi</button>
       </nav>
-      <div class="scene-toolbar">
-        <div class="parts-row" id="parts-row">
-          <span class="paint-label">Parçalar</span>
-          <div class="parts-btns" id="parts-btns" role="group" aria-label="Açılır parçalar"></div>
-          <button class="parts-all" id="parts-all" type="button">Tümünü aç</button>
+      <div class="parts-toolbar top-left" id="parts-box">
+        <span class="paint-label">KAPILAR</span>
+        <div class="parts-btns" id="parts-btns" role="group" aria-label="Açılır parçalar"></div>
+        <button class="parts-all" id="parts-all" type="button">Tümünü aç</button>
+      </div>
+      <div class="parts-toolbar top-right" id="inspect-box">
+        <span class="paint-label">PARÇALAR</span>
+        <div class="parts-btns" id="inspect-btns" role="group" aria-label="Yükseltilebilir 3B parçalar">
+          <button class="inspect-btn" type="button" data-region="motor">⚙️ Motor</button>
+          <button class="inspect-btn" type="button" data-region="fren">🛑 Frenler</button>
+          <button class="inspect-btn" type="button" data-region="amortisor">🌀 Amortisör</button>
+          <button class="inspect-btn" type="button" data-region="lastik">🛞 Lastikler</button>
+          <button class="inspect-btn" type="button" data-region="elektrik">⚡ Akü</button>
+          <button class="inspect-btn" type="button" data-region="egzoz">💨 Egzoz</button>
+          <button class="inspect-btn" type="button" data-region="klima">❄️ Klima</button>
+          <button class="inspect-btn clear" id="inspect-clear" type="button" title="Yerine İndir">⬇️ İndir</button>
         </div>
       </div>
       <button class="colabel" id="lab-motor" data-region="motor">
