@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light dark" />
   <title>Automob — Servis Paneli</title>
 </head>
+
 <body>
   <!-- ============ GİRİŞ EKRANI ============ -->
   <div id="login-screen" class="login-screen">
@@ -24,22 +26,39 @@
         <div class="login-card">
           <div class="login-brand">
             <span class="lb-mark">
-              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 15 L6 9 Q6.6 7.4 8.4 7.4 L15.6 7.4 Q17.4 7.4 18 9 L20 15"
-                      fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M3 15 L21 15 L21 17.4 L3 17.4 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                <circle cx="7.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                <circle cx="16.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              <!-- Araba + İngiliz Anahtarı logo -->
+              <svg width="28" height="24" viewBox="0 0 36 24" aria-hidden="true" fill="none" stroke="currentColor"
+                stroke-linecap="round" stroke-linejoin="round">
+                <!-- Araba gövdesi -->
+                <path d="M2 16 L3.5 11 Q4.2 9 6.2 9 L18.8 9 Q20.8 9 21.5 11 L23 16" stroke-width="1.5" />
+                <path d="M1 16 L24 16 L24 18.5 Q24 19.5 23 19.5 L2 19.5 Q1 19.5 1 18.5 Z" stroke-width="1.5" />
+                <!-- Tekerlekler -->
+                <circle cx="6" cy="19.5" r="2.2" stroke-width="1.5" />
+                <circle cx="6" cy="19.5" r="0.9" stroke-width="1.2" />
+                <circle cx="19" cy="19.5" r="2.2" stroke-width="1.5" />
+                <circle cx="19" cy="19.5" r="0.9" stroke-width="1.2" />
+                <!-- Ön far -->
+                <path d="M22.5 12 L23.5 12" stroke-width="1.8" stroke="currentColor" />
+                <!-- İngiliz anahtarı -->
+                <g transform="translate(27 4) rotate(-35)">
+                  <path d="M0 0 Q3 -1 3 2 Q3 4 1 4 L1 10 L-1 10 L-1 4 Q-3 4 -3 2 Q-3 -1 0 0Z" stroke-width="1.2"
+                    fill="none" />
+                  <rect x="-1.5" y="7" width="3" height="2" rx="0.4" stroke-width="1.2" />
+                </g>
               </svg>
               <span>AUTOMOB</span>
             </span>
-            <button class="theme-toggle" id="theme-toggle-login" type="button" title="Tema değiştir" aria-label="Açık/koyu tema değiştir">
-              <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4.2"/>
-                <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/>
+            <button class="theme-toggle" id="theme-toggle-login" type="button" title="Tema değiştir"
+              aria-label="Açık/koyu tema değiştir">
+              <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.2" />
+                <path
+                  d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7" />
               </svg>
-              <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+              <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z" />
               </svg>
             </button>
           </div>
@@ -49,42 +68,51 @@
 
           <form id="login-form" novalidate>
             <div class="field">
-              <input id="login-email" class="login-input" type="email" autocomplete="username" placeholder=" " required />
+              <input id="login-email" class="login-input" type="email" autocomplete="username" placeholder=" "
+                required />
               <label class="field-label" for="login-email">E-posta</label>
               <span class="f-line" aria-hidden="true"></span>
               <span class="f-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2.8" y="5" width="18.4" height="14" rx="2.4"/>
-                  <path d="m3.4 6.6 8.6 6 8.6-6"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <rect x="2.8" y="5" width="18.4" height="14" rx="2.4" />
+                  <path d="m3.4 6.6 8.6 6 8.6-6" />
                 </svg>
               </span>
             </div>
 
             <div class="field">
-              <input id="login-password" class="login-input has-action" type="password" autocomplete="current-password" placeholder=" " required />
+              <input id="login-password" class="login-input has-action" type="password" autocomplete="current-password"
+                placeholder=" " required />
               <label class="field-label" for="login-password">Şifre</label>
               <span class="f-line" aria-hidden="true"></span>
               <span class="f-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="4" y="10.4" width="16" height="10.2" rx="2.2"/>
-                  <path d="M7.8 10.4V7.6a4.2 4.2 0 0 1 8.4 0v2.8"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <rect x="4" y="10.4" width="16" height="10.2" rx="2.2" />
+                  <path d="M7.8 10.4V7.6a4.2 4.2 0 0 1 8.4 0v2.8" />
                 </svg>
               </span>
               <button type="button" class="f-action" id="pw-toggle" aria-label="Şifreyi göster" aria-pressed="false">
-                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M2.2 12S5.8 5.4 12 5.4 21.8 12 21.8 12 18.2 18.6 12 18.6 2.2 12 2.2 12Z"/>
-                  <circle cx="12" cy="12" r="3.1"/>
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2.2 12S5.8 5.4 12 5.4 21.8 12 21.8 12 18.2 18.6 12 18.6 2.2 12 2.2 12Z" />
+                  <circle cx="12" cy="12" r="3.1" />
                 </svg>
-                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M9.9 5.7A8.9 8.9 0 0 1 12 5.4c6.2 0 9.8 6.6 9.8 6.6a17 17 0 0 1-3.2 4.1M6.4 7.3A17 17 0 0 0 2.2 12S5.8 18.6 12 18.6a9 9 0 0 0 4-.9"/>
-                  <path d="M3.2 3.2 20.8 20.8"/>
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path
+                    d="M9.9 5.7A8.9 8.9 0 0 1 12 5.4c6.2 0 9.8 6.6 9.8 6.6a17 17 0 0 1-3.2 4.1M6.4 7.3A17 17 0 0 0 2.2 12S5.8 18.6 12 18.6a9 9 0 0 0 4-.9" />
+                  <path d="M3.2 3.2 20.8 20.8" />
                 </svg>
               </button>
             </div>
 
             <p class="caps-hint" id="caps-hint" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3.6 4.4 11.2h4v4.4h7.2v-4.4h4Z"/><path d="M8.4 19.2h7.2"/>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3.6 4.4 11.2h4v4.4h7.2v-4.4h4Z" />
+                <path d="M8.4 19.2h7.2" />
               </svg>
               Caps Lock açık
             </p>
@@ -102,16 +130,18 @@
             <span class="login-demo-label">Demo hesaplar</span>
             <div class="login-demo-row">
               <button type="button" class="chip-btn" data-demo="isletme">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M14.4 6.4a3.9 3.9 0 0 0 5.1 5.1l-7.6 7.6a2.5 2.5 0 0 1-3.5-3.5Z"/>
-                  <path d="m14.4 6.4 2.6-2.6 3.5 3.5-2.6 2.6"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14.4 6.4a3.9 3.9 0 0 0 5.1 5.1l-7.6 7.6a2.5 2.5 0 0 1-3.5-3.5Z" />
+                  <path d="m14.4 6.4 2.6-2.6 3.5 3.5-2.6 2.6" />
                 </svg>
                 İşletme
               </button>
               <button type="button" class="chip-btn" data-demo="musteri">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="8.4" r="3.6"/>
-                  <path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="8.4" r="3.6" />
+                  <path d="M4.8 20a7.2 7.2 0 0 1 14.4 0" />
                 </svg>
                 Müşteri
               </button>
@@ -132,12 +162,24 @@
   <div class="app hidden" id="app-root">
     <header class="bar top">
       <div class="brand">
-        <svg class="brand-mark" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 15 L6 9 Q6.6 7.4 8.4 7.4 L15.6 7.4 Q17.4 7.4 18 9 L20 15"
-                fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <path d="M3 15 L21 15 L21 17.4 L3 17.4 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-          <circle cx="7.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-          <circle cx="16.5" cy="17.4" r="1.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <!-- Araba + İngiliz Anahtarı brand logo -->
+        <svg class="brand-mark" width="32" height="22" viewBox="0 0 36 24" aria-hidden="true" fill="none"
+          stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Araba gövdesi -->
+          <path d="M2 16 L3.5 11 Q4.2 9 6.2 9 L18.8 9 Q20.8 9 21.5 11 L23 16" stroke-width="1.5" />
+          <path d="M1 16 L24 16 L24 18.5 Q24 19.5 23 19.5 L2 19.5 Q1 19.5 1 18.5 Z" stroke-width="1.5" />
+          <!-- Tekerlekler -->
+          <circle cx="6" cy="19.5" r="2.2" stroke-width="1.5" />
+          <circle cx="6" cy="19.5" r="0.9" stroke-width="1.2" />
+          <circle cx="19" cy="19.5" r="2.2" stroke-width="1.5" />
+          <circle cx="19" cy="19.5" r="0.9" stroke-width="1.2" />
+          <!-- Ön far -->
+          <path d="M22.5 12 L23.5 12" stroke-width="1.8" />
+          <!-- İngiliz anahtarı -->
+          <g transform="translate(27 4) rotate(-35)">
+            <path d="M0 0 Q3 -1 3 2 Q3 4 1 4 L1 10 L-1 10 L-1 4 Q-3 4 -3 2 Q-3 -1 0 0Z" stroke-width="1.2" />
+            <rect x="-1.5" y="7" width="3" height="2" rx="0.4" stroke-width="1.2" />
+          </g>
         </svg>
         <span class="brand-name">AUTOMOB</span>
       </div>
@@ -149,13 +191,17 @@
         <button class="tab" data-tab="kaporta">Kaporta Durumu</button>
       </nav>
       <div class="car-id">
-        <button class="theme-toggle" id="theme-toggle" type="button" title="Tema değiştir" aria-label="Açık/koyu tema değiştir">
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="4.2"/>
-            <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/>
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Tema değiştir"
+          aria-label="Açık/koyu tema değiştir">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.2" />
+            <path
+              d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7" />
           </svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z"/>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5Z" />
           </svg>
         </button>
         <span class="api-badge" id="api-badge" title="Backend bağlantısı">
@@ -200,6 +246,7 @@
               <button data-body="kamyon">Kamyon</button>
               <button data-body="otobus">Otobüs</button>
               <button data-body="tir">Tır</button>
+              <button data-body="motor">Motor</button>
             </div>
           </section>
 
@@ -238,13 +285,8 @@
             <span class="card-title">Müşteri Ara</span>
             <span class="card-count" id="customer-count"></span>
           </div>
-          <input
-            class="customer-search-input"
-            id="customer-search-input"
-            type="search"
-            placeholder="Müşteri ID, ad veya plaka (örn. MST-003)"
-            autocomplete="off"
-          />
+          <input class="customer-search-input" id="customer-search-input" type="search"
+            placeholder="Müşteri ID, ad veya plaka (örn. MST-003)" autocomplete="off" />
           <div class="customer-list" id="customer-list"></div>
         </section>
       </div>
@@ -303,11 +345,22 @@
         <button class="cam active" data-view="orbit">3D Orbit</button>
         <button class="cam" data-view="motorBay">Motor Bölmesi</button>
       </nav>
-      <div class="scene-toolbar">
-        <div class="parts-row" id="parts-row">
-          <span class="paint-label">Parçalar</span>
-          <div class="parts-btns" id="parts-btns" role="group" aria-label="Açılır parçalar"></div>
-          <button class="parts-all" id="parts-all" type="button">Tümünü aç</button>
+      <div class="parts-toolbar top-left" id="parts-box">
+        <span class="paint-label">KAPILAR</span>
+        <div class="parts-btns" id="parts-btns" role="group" aria-label="Açılır parçalar"></div>
+        <button class="parts-all" id="parts-all" type="button">Tümünü aç</button>
+      </div>
+      <div class="parts-toolbar top-right" id="inspect-box">
+        <span class="paint-label">PARÇALAR</span>
+        <div class="parts-btns" id="inspect-btns" role="group" aria-label="Yükseltilebilir 3B parçalar">
+          <button class="inspect-btn" type="button" data-region="motor">⚙️ Motor</button>
+          <button class="inspect-btn" type="button" data-region="fren">🛑 Frenler</button>
+          <button class="inspect-btn" type="button" data-region="amortisor">🌀 Amortisör</button>
+          <button class="inspect-btn" type="button" data-region="lastik">🛞 Lastikler</button>
+          <button class="inspect-btn" type="button" data-region="elektrik">⚡ Akü</button>
+          <button class="inspect-btn" type="button" data-region="egzoz">💨 Egzoz</button>
+          <button class="inspect-btn" type="button" data-region="klima">❄️ Klima</button>
+          <button class="inspect-btn clear" id="inspect-clear" type="button" title="Yerine İndir">⬇️ İndir</button>
         </div>
       </div>
       <button class="colabel" id="lab-motor" data-region="motor">
@@ -338,4 +391,5 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
+
 </html>

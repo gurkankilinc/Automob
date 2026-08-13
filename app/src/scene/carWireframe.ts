@@ -18,7 +18,7 @@ export type RegionId = "motor" | "fren" | "amortisor" | "lastik" | "elektrik" | 
 export const ALL_REGION_IDS: RegionId[] = [
   "motor", "fren", "amortisor", "lastik", "elektrik", "egzoz", "klima",
 ];
-export type BodyType = "sedan" | "hatchback" | "suv" | "minibus" | "kamyon" | "otobus" | "tir";
+export type BodyType = "sedan" | "hatchback" | "suv" | "minibus" | "kamyon" | "otobus" | "tir" | "motor";
 export type PaintZone = "hood" | "doors" | "trunk" | "body";
 export type OpenablePart = "hood" | "trunk" | "doorFL" | "doorFR" | "doorRL" | "doorRR";
 
@@ -67,8 +67,10 @@ export interface BodyCfg {
   doorSeams: number[];
   beltY: number;
   engine: { x0: number; x1: number; y0: number; y1: number; halfZ: number };
-  /** SUV gibi yüksek tabanlı kasalarda iç mekânın y kaydırması */
+  /** SUV gibi yüksek tabanlı kasalarda iç mekânın y kaydirması */
   lift: number;
+  /** Motosiklet gibi kapalı kabini olmayan kasalarda iç mekân geometrisi üretilmez */
+  noInterior?: boolean;
 }
 
 export const BODY_CONFIGS: Record<BodyType, BodyCfg> = {
@@ -169,7 +171,7 @@ export const BODY_CONFIGS: Record<BodyType, BodyCfg> = {
     bodyHalfW: 0.96, glassZ: 0.8,
     window: [[0.65, 1.35], [0.65, 2.05], [1.55, 2.05], [2.02, 1.35]],
     pillars: [1.1],
-    doorSeams: [1.0, 0.6],
+    doorSeams: [1.5, 0.6],
     beltY: 1.28,
     engine: { x0: 1.5, x1: 2.15, y0: 0.65, y1: 1.1, halfZ: 0.45 },
     lift: 0.2,
@@ -188,8 +190,8 @@ export const BODY_CONFIGS: Record<BodyType, BodyCfg> = {
     wheelR: 0.48, wheelY: 0.48, archR: 0.6, sillY: 0.42,
     bodyHalfW: 1.0, glassZ: 0.86,
     window: [[-3.5, 1.35], [-3.5, 2.4], [1.75, 2.4], [2.65, 2.25]],
-    pillars: [1.0, 0.0, -1.0, -2.0],
-    doorSeams: [1.8, -1.5],
+    pillars: [1.2, 0.2, -0.8, -1.8, -2.8],
+    doorSeams: [2.1, 1.0],
     beltY: 1.3,
     engine: { x0: -3.6, x1: -2.8, y0: 0.6, y1: 1.1, halfZ: 0.48 },
     lift: 0.25,
@@ -197,23 +199,58 @@ export const BODY_CONFIGS: Record<BodyType, BodyCfg> = {
   tir: {
     label: "Tır",
     profile: [
-      [-4.2, 0.65, 1.05], [-4.2, 2.35, 1.05], [-0.8, 2.35, 1.05], [-0.8, 0.75, 1.05],
-      [0.4, 0.75, 0.95], [0.4, 2.4, 0.92], [1.6, 2.4, 0.92], [2.2, 1.45, 0.96],
+      [-1.8, 0.65, 0.95], [-1.8, 0.75, 0.95], [0.4, 0.75, 0.95],
+      [0.4, 2.4, 0.92], [1.6, 2.4, 0.92], [2.2, 1.45, 0.96],
       [2.4, 0.65, 1.0],
     ],
-    cross2: [1, 2, 5, 6, 7],
-    cross3: [0, 8],
-    hoodIdx: [6, 7, 8],
+    cross2: [3, 4, 5],
+    cross3: [0, 1, 6],
+    hoodIdx: [4, 5, 6],
     tailIdx: [2, 1, 0],
-    frontX: 1.7, rearX: -2.8,
+    frontX: 1.7, rearX: -1.0,
     wheelR: 0.5, wheelY: 0.5, archR: 0.62, sillY: 0.46,
-    bodyHalfW: 1.05, glassZ: 0.88,
+    bodyHalfW: 0.98, glassZ: 0.88,
+    // Tır kabin penceresi — sadece ön kısım
     window: [[0.45, 1.45], [0.45, 2.35], [1.55, 2.35], [2.12, 1.48]],
     pillars: [1.0],
-    doorSeams: [0.9, 0.4],
+    // Tırda kabin kapıları sadece kabin bölümünde (0.4 ile 1.7 arası)
+    doorSeams: [1.55, 0.48],
     beltY: 1.35,
     engine: { x0: 1.55, x1: 2.25, y0: 0.7, y1: 1.2, halfZ: 0.48 },
     lift: 0.22,
+  },
+  motor: {
+    label: "Motosiklet",
+    // 2 tekerlekli, dar gövde — sele, depo, arka fanórluk
+    profile: [
+      // arka → öne: [x, y, yarı-gen. (z)]
+      [-1.05, 0.30, 0.14], // arka alt
+      [-1.05, 0.55, 0.14], // arka sele altı
+      [-0.55, 0.76, 0.13], // sele arka
+      [0.05, 0.82, 0.12], // yakıt deposu
+      [0.40, 0.76, 0.11], // depo ön
+      [0.62, 0.68, 0.10], // diřek başı
+      [1.05, 0.60, 0.10], // ön çatal orta
+      [1.30, 0.32, 0.10], // ön alt
+    ],
+    cross2: [1, 3, 5],
+    cross3: [0, 7],
+    // Kapot/bagaj: ön fanarlık (küçük) ve arka kaporta
+    hoodIdx: [5, 6, 7],    // ön fanarlık/far
+    tailIdx: [2, 1, 0],    // arka kaporta
+    frontX: 1.20, rearX: -0.85,
+    wheelR: 0.30, wheelY: 0.30, archR: 0.36, sillY: 0.22,
+    bodyHalfW: 0.13, glassZ: 0.10,
+    // Küçük rüzgarüstü penceresi (camın olmadığı alanlar saydam)
+    window: [[0.40, 0.56], [0.38, 0.66], [0.65, 0.66], [0.65, 0.56]],
+    pillars: [],
+    // doorSeams: doorX[0]=winXMax=0.65, doorX[1]=doorSeams[0]=0.65 → 0 genişlik → kapı yok
+    doorSeams: [0.65, 0.65],
+    beltY: 0.62,
+    // Motosiklet motoru: akşam blok boyutları gerçekçi
+    engine: { x0: -0.05, x1: 0.52, y0: 0.22, y1: 0.58, halfZ: 0.12 },
+    lift: 0,
+    noInterior: true,
   },
 };
 
@@ -712,12 +749,18 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
       ], 3, true);
     }
   }
-  buildDoor("doorFL", "Sol Ön Kapı", doorX[0], doorX[1], -1, true);
-  buildDoor("doorFR", "Sağ Ön Kapı", doorX[0], doorX[1], 1, true);
-  buildDoor("doorRL", "Sol Arka Kapı", doorX[1], doorX[2], -1, false);
-  buildDoor("doorRR", "Sağ Arka Kapı", doorX[1], doorX[2], 1, false);
-
-  // ================= İÇ MEKÂN (detaylı) =================
+  // Büyük araçlarda (otobüs/kamyon/tır) ve motosiklette kapı geometrisi
+  // anlamsız görünür.
+  const hasFrontDoor = Math.abs(doorX[1] - doorX[0]) > 0.25;
+  const hasRearDoor = Math.abs(doorX[2] - doorX[1]) > 0.35;
+  if (hasFrontDoor) {
+    buildDoor("doorFL", "Sol Ön Kapı", doorX[0], doorX[1], -1, true);
+    buildDoor("doorFR", "Sağ Ön Kapı", doorX[0], doorX[1], 1, true);
+  }
+  if (hasRearDoor) {
+    buildDoor("doorRL", "Sol Arka Kapı", doorX[1], doorX[2], -1, false);
+    buildDoor("doorRR", "Sağ Arka Kapı", doorX[1], doorX[2], 1, false);
+  }
 
   // ---- Koltuklar ----
   function seat(cx: number, cz: number, front: boolean): void {
@@ -759,149 +802,150 @@ export function buildCarWireframe(body: BodyType): CarWireframe {
       S.add([cx + 0.14, cfg.sillY + 0.05, cz], [cx + 0.14, y0, cz], 3);
     }
   }
-  seat(0.1, -0.34, true);  // Sürücü koltuğu (Sol - LHD)
-  seat(0.1, 0.34, true);   // Yolcu koltuğu (Sağ - LHD)
-  seat(-0.72, -0.34, false);
-  seat(-0.72, 0.34, false);
-  // arka koltuk ortak oturağı
-  S.add([-0.72, 0.545 + L, -0.14], [-0.72, 0.545 + L, 0.14], 3);
+  if (!cfg.noInterior) {
+    seat(0.1, -0.34, true);  // Sürücü koltuğu (Sol - LHD)
+    seat(0.1, 0.34, true);   // Yolcu koltuğu (Sağ - LHD)
+    seat(-0.72, -0.34, false);
+    seat(-0.72, 0.34, false);
+    // arka koltuk ortak oturağı
+    S.add([-0.72, 0.545 + L, -0.14], [-0.72, 0.545 + L, 0.14], 3);
 
-  // ---- Torpido / gösterge paneli ----
-  {
-    const dashX = 0.98;
-    const dz = cfg.bodyHalfW - 0.1;
-    const dy0 = 0.7 + L, dy1 = 0.96 + L;
-    // ana pano gövdesi
-    S.poly([
-      [dashX + 0.08, dy0, dz], [dashX + 0.08, dy0, -dz],
-      [dashX - 0.02, dy1, -dz], [dashX - 0.02, dy1, dz],
-    ], 2, true);
-    S.add([dashX + 0.08, dy0, dz], [dashX - 0.02, dy1, dz], 3);
-    S.add([dashX + 0.08, dy0, -dz], [dashX - 0.02, dy1, -dz], 3);
-    // gösterge yuvası (sürücü tarafı, -z LHD)
-    S.box(dashX - 0.06, dy1 - 0.14, -0.5, dashX + 0.03, dy1 + 0.02, -0.18, 3);
-    S.circle(dashX - 0.03, dy1 - 0.06, -0.26, 0.055, "yz", 12, 3);
-    S.circle(dashX - 0.03, dy1 - 0.06, -0.42, 0.055, "yz", 12, 3);
-    // orta konsol ekranı
-    S.poly([
-      [dashX - 0.01, dy1 - 0.04, -0.13], [dashX - 0.01, dy1 - 0.04, 0.13],
-      [dashX + 0.02, dy1 - 0.2, 0.13], [dashX + 0.02, dy1 - 0.2, -0.13],
-    ], 3, true);
-    // havalandırma menfezleri
-    for (const zc of [-0.52, -0.2, 0.2, 0.52]) {
-      S.box(dashX + 0.01, dy1 - 0.13, zc - 0.06, dashX + 0.05, dy1 - 0.05, zc + 0.06, 3);
-    }
-    // klima/radyo düğme sırası
-    for (let i = -1; i <= 1; i++) {
-      S.circle(dashX + 0.04, dy0 + 0.09, i * 0.1, 0.022, "yz", 8, 3);
-    }
-    // torpido gözü (yolcu tarafı, +z LHD)
-    S.poly([
-      [dashX + 0.03, dy0 + 0.04, 0.22], [dashX + 0.03, dy0 + 0.04, 0.56],
-      [dashX + 0.01, dy1 - 0.14, 0.56], [dashX + 0.01, dy1 - 0.14, 0.22],
-    ], 3, true);
-  }
-
-  // ---- Direksiyon + kolon + pedallar ----
-  {
-    const C: P = [0.72, 0.88 + L, -0.34];
-    const r = 0.135;
-    const u: P = [0, 0, 1];
-    const v: P = [0.41, -0.912, 0];
-    const rim = (rad: number): P[] => {
-      const pts: P[] = [];
-      for (let i = 0; i < 14; i++) {
-        const t = (i / 14) * Math.PI * 2;
-        pts.push([
-          C[0] + rad * (Math.cos(t) * u[0] + Math.sin(t) * v[0]),
-          C[1] + rad * (Math.cos(t) * u[1] + Math.sin(t) * v[1]),
-          C[2] + rad * (Math.cos(t) * u[2] + Math.sin(t) * v[2]),
-        ]);
-      }
-      return pts;
-    };
-    S.poly(rim(r), 2, true);
-    S.poly(rim(r * 0.26), 3, true);   // göbek
-    // üç kol
-    const outer = rim(r * 0.95), inner = rim(r * 0.26);
-    for (const i of [0, 5, 9]) S.add(inner[i], outer[i], 3);
-    // kolon + sinyal kolları
-    S.add(C, [0.95, 0.8 + L, -0.34], 3);
-    for (const s of [-1, 1]) {
-      S.add([0.85, 0.86 + L, -0.34], [0.83, 0.85 + L, -0.34 + s * 0.16], 3);
-    }
-    // pedallar
-    for (let i = 0; i < 3; i++) {
-      const pz = -0.34 + (i - 1) * 0.11;
+    // ---- Torpido / gösterge paneli ----
+    {
+      const dashX = 0.98;
+      const dz = cfg.bodyHalfW - 0.1;
+      const dy0 = 0.7 + L, dy1 = 0.96 + L;
+      // ana pano gövdesi
       S.poly([
-        [1.02, 0.44 + L, pz - 0.03], [1.02, 0.44 + L, pz + 0.03],
-        [1.07, 0.52 + L, pz + 0.03], [1.07, 0.52 + L, pz - 0.03],
+        [dashX + 0.08, dy0, dz], [dashX + 0.08, dy0, -dz],
+        [dashX - 0.02, dy1, -dz], [dashX - 0.02, dy1, dz],
+      ], 2, true);
+      S.add([dashX + 0.08, dy0, dz], [dashX - 0.02, dy1, dz], 3);
+      S.add([dashX + 0.08, dy0, -dz], [dashX - 0.02, dy1, -dz], 3);
+      // gösterge yuvası (sürücü tarafı, -z LHD)
+      S.box(dashX - 0.06, dy1 - 0.14, -0.5, dashX + 0.03, dy1 + 0.02, -0.18, 3);
+      S.circle(dashX - 0.03, dy1 - 0.06, -0.26, 0.055, "yz", 12, 3);
+      S.circle(dashX - 0.03, dy1 - 0.06, -0.42, 0.055, "yz", 12, 3);
+      // orta konsol ekranı
+      S.poly([
+        [dashX - 0.01, dy1 - 0.04, -0.13], [dashX - 0.01, dy1 - 0.04, 0.13],
+        [dashX + 0.02, dy1 - 0.2, 0.13], [dashX + 0.02, dy1 - 0.2, -0.13],
+      ], 3, true);
+      // havalandırma menfezleri
+      for (const zc of [-0.52, -0.2, 0.2, 0.52]) {
+        S.box(dashX + 0.01, dy1 - 0.13, zc - 0.06, dashX + 0.05, dy1 - 0.05, zc + 0.06, 3);
+      }
+      // klima/radyo düğme sırası
+      for (let i = -1; i <= 1; i++) {
+        S.circle(dashX + 0.04, dy0 + 0.09, i * 0.1, 0.022, "yz", 8, 3);
+      }
+      // torpido gözü (yolcu tarafı, +z LHD)
+      S.poly([
+        [dashX + 0.03, dy0 + 0.04, 0.22], [dashX + 0.03, dy0 + 0.04, 0.56],
+        [dashX + 0.01, dy1 - 0.14, 0.56], [dashX + 0.01, dy1 - 0.14, 0.22],
       ], 3, true);
     }
-  }
 
-  // ---- Orta konsol: vites, el freni, bardaklık ----
-  {
-    const cy0 = cfg.sillY + 0.06, cy1 = 0.64 + L;
-    S.box(0.18, cy0, -0.14, 0.86, cy1, 0.14, 3);
-    // vites kolu + topuz
-    S.add([0.6, cy1, 0], [0.56, cy1 + 0.16, 0], 2);
-    S.circle(0.555, cy1 + 0.19, 0, 0.042, "xy", 10, 3);
-    S.circle(0.6, cy1 + 0.005, 0, 0.07, "xz", 10, 3);   // körük tabanı
-    // el freni
-    S.add([0.3, cy1, 0.06], [0.16, cy1 + 0.13, 0.06], 3);
-    // bardaklıklar
-    for (const cx of [0.34, 0.46]) S.circle(cx, cy1 + 0.002, -0.06, 0.045, "xz", 10, 3);
-  }
-
-  // ---- Tavan iç detayları ----
-  {
-    const zt = cfg.glassZ - 0.04;
-    const roofPts = cfg.window.filter((p) => p[1] > cfg.beltY + 0.15);
-    if (roofPts.length >= 2) {
-      const rx0 = Math.min(...roofPts.map((p) => p[0]));
-      const rx1 = Math.max(...roofPts.map((p) => p[0]));
-      const ry = Math.min(...roofPts.map((p) => p[1])) - 0.03;
-      // tavan döşemesi kaburgaları
-      for (const t of [0.25, 0.5, 0.75]) {
-        const x = rx0 + (rx1 - rx0) * t;
-        S.add([x, ry, zt], [x, ry, -zt], 3);
-      }
-      // iç dikiz aynası
-      const mx = rx1 - 0.06;
-      S.box(mx - 0.03, ry - 0.1, -0.1, mx + 0.01, ry - 0.04, 0.1, 3);
-      S.add([mx - 0.01, ry - 0.04, 0], [mx - 0.01, ry, 0], 3);
-      // güneşlikler
+    // ---- Direksiyon + kolon + pedallar ----
+    {
+      const C: P = [0.72, 0.88 + L, -0.34];
+      const r = 0.135;
+      const u: P = [0, 0, 1];
+      const v: P = [0.41, -0.912, 0];
+      const rim = (rad: number): P[] => {
+        const pts: P[] = [];
+        for (let i = 0; i < 14; i++) {
+          const t = (i / 14) * Math.PI * 2;
+          pts.push([
+            C[0] + rad * (Math.cos(t) * u[0] + Math.sin(t) * v[0]),
+            C[1] + rad * (Math.cos(t) * u[1] + Math.sin(t) * v[1]),
+            C[2] + rad * (Math.cos(t) * u[2] + Math.sin(t) * v[2]),
+          ]);
+        }
+        return pts;
+      };
+      S.poly(rim(r), 2, true);
+      S.poly(rim(r * 0.26), 3, true);   // göbek
+      // üç kol
+      const outer = rim(r * 0.95), inner = rim(r * 0.26);
+      for (const i of [0, 5, 9]) S.add(inner[i], outer[i], 3);
+      // kolon + sinyal kolları
+      S.add(C, [0.95, 0.8 + L, -0.34], 3);
       for (const s of [-1, 1]) {
+        S.add([0.85, 0.86 + L, -0.34], [0.83, 0.85 + L, -0.34 + s * 0.16], 3);
+      }
+      // pedallar
+      for (let i = 0; i < 3; i++) {
+        const pz = -0.34 + (i - 1) * 0.11;
         S.poly([
-          [rx1 - 0.02, ry - 0.02, s * 0.14], [rx1 - 0.02, ry - 0.02, s * 0.42],
-          [rx1 - 0.2, ry - 0.05, s * 0.42], [rx1 - 0.2, ry - 0.05, s * 0.14],
+          [1.02, 0.44 + L, pz - 0.03], [1.02, 0.44 + L, pz + 0.03],
+          [1.07, 0.52 + L, pz + 0.03], [1.07, 0.52 + L, pz - 0.03],
         ], 3, true);
       }
-      // tavan lambası
-      S.box(mx - 0.14, ry - 0.03, -0.06, mx - 0.06, ry, 0.06, 3);
     }
-  }
 
-  // ---- Bagaj içi (kapak açılınca görünür) ----
-  {
-    const ty = cfg.sillY + 0.06;
-    const tz = cfg.bodyHalfW - 0.1;
-    const tx0 = rX + 0.12;
-    const tx1 = trunkStartX + 0.06;
-    S.poly([[tx0, ty, tz], [tx1, ty, tz], [tx1, ty, -tz], [tx0, ty, -tz]], 3, true);
-    // stepne yuvası
-    S.circle((tx0 + tx1) / 2, ty - 0.005, 0, 0.3, "xz", 16, 3);
-    S.circle((tx0 + tx1) / 2, ty - 0.005, 0, 0.1, "xz", 10, 3);
-    // arka koltuk arkalığı (bagaj tarafından)
-    S.add([tx1, ty, tz], [tx1 + 0.06, cfg.beltY - 0.06, tz], 3);
-    S.add([tx1, ty, -tz], [tx1 + 0.06, cfg.beltY - 0.06, -tz], 3);
-    S.add([tx1 + 0.06, cfg.beltY - 0.06, tz], [tx1 + 0.06, cfg.beltY - 0.06, -tz], 3);
-  }
+    // ---- Orta konsol: vites, el freni, bardaklık ----
+    {
+      const cy0 = cfg.sillY + 0.06, cy1 = 0.64 + L;
+      S.box(0.18, cy0, -0.14, 0.86, cy1, 0.14, 3);
+      // vites kolu + topuz
+      S.add([0.6, cy1, 0], [0.56, cy1 + 0.16, 0], 2);
+      S.circle(0.555, cy1 + 0.19, 0, 0.042, "xy", 10, 3);
+      S.circle(0.6, cy1 + 0.005, 0, 0.07, "xz", 10, 3);   // körük tabanı
+      // el freni
+      S.add([0.3, cy1, 0.06], [0.16, cy1 + 0.13, 0.06], 3);
+      // bardaklıklar
+      for (const cx of [0.34, 0.46]) S.circle(cx, cy1 + 0.002, -0.06, 0.045, "xz", 10, 3);
+    }
+
+    // ---- Tavan iç detayları ----
+    {
+      const zt = cfg.glassZ - 0.04;
+      const roofPts = cfg.window.filter((p) => p[1] > cfg.beltY + 0.15);
+      if (roofPts.length >= 2) {
+        const rx0 = Math.min(...roofPts.map((p) => p[0]));
+        const rx1 = Math.max(...roofPts.map((p) => p[0]));
+        const ry = Math.min(...roofPts.map((p) => p[1])) - 0.03;
+        // tavan döşemesi kaburgaları
+        for (const t of [0.25, 0.5, 0.75]) {
+          const x = rx0 + (rx1 - rx0) * t;
+          S.add([x, ry, zt], [x, ry, -zt], 3);
+        }
+        // iç dikiz aynası
+        const mx = rx1 - 0.06;
+        S.box(mx - 0.03, ry - 0.1, -0.1, mx + 0.01, ry - 0.04, 0.1, 3);
+        S.add([mx - 0.01, ry - 0.04, 0], [mx - 0.01, ry, 0], 3);
+        // güneşlikler
+        for (const s of [-1, 1]) {
+          S.poly([
+            [rx1 - 0.02, ry - 0.02, s * 0.14], [rx1 - 0.02, ry - 0.02, s * 0.42],
+            [rx1 - 0.2, ry - 0.05, s * 0.42], [rx1 - 0.2, ry - 0.05, s * 0.14],
+          ], 3, true);
+        }
+        // tavan lambası
+        S.box(mx - 0.14, ry - 0.03, -0.06, mx - 0.06, ry, 0.06, 3);
+      }
+    }
+
+    // ---- Bagaj içi (kapak açılınca görünür) ----
+    {
+      const ty = cfg.sillY + 0.06;
+      const tz = cfg.bodyHalfW - 0.1;
+      const tx0 = rX + 0.12;
+      const tx1 = trunkStartX + 0.06;
+      S.poly([[tx0, ty, tz], [tx1, ty, tz], [tx1, ty, -tz], [tx0, ty, -tz]], 3, true);
+      // stepne yuvası
+      S.circle((tx0 + tx1) / 2, ty - 0.005, 0, 0.3, "xz", 16, 3);
+      S.circle((tx0 + tx1) / 2, ty - 0.005, 0, 0.1, "xz", 10, 3);
+      // arka koltuk arkalığı (bagaj tarafından)
+      S.add([tx1, ty, tz], [tx1 + 0.06, cfg.beltY - 0.06, tz], 3);
+      S.add([tx1, ty, -tz], [tx1 + 0.06, cfg.beltY - 0.06, -tz], 3);
+      S.add([tx1 + 0.06, cfg.beltY - 0.06, tz], [tx1 + 0.06, cfg.beltY - 0.06, -tz], 3);
+    } // /bagaj bloğu
+  } // /if(!cfg.noInterior) — koltuk + torpido + direksiyon + bagaj
 
   // ================= MOTOR BÖLMESİ (detaylı) =================
 
-  // Motor bloğu + silindir kapağı — "motor" bölgesi
   Rmotor.box(e.x0, e.y0, -e.halfZ, e.x1, e.y1, e.halfZ, 2);
   Rmotor.box(e.x0 + 0.06, e.y1, -e.halfZ * 0.72, e.x1 - 0.06, e.y1 + 0.1, e.halfZ * 0.72, 3);
   for (let i = 1; i <= 3; i++) {
