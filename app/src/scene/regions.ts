@@ -39,7 +39,7 @@ export function getRegionDefs(cfg: BodyCfg): RegionDef[] {
     },
     {
       id: "fren",
-      anchor: new THREE.Vector3(cfg.frontX, cfg.wheelY, 0.5),
+      anchor: new THREE.Vector3((cfg.frontX + cfg.rearX) / 2, cfg.wheelY, 0),
       glowScale: 1.6,
       hits: [
         { center: new THREE.Vector3(cfg.frontX, cfg.wheelY, cfg.bodyHalfW), radius: wR + 0.12 },
@@ -51,7 +51,7 @@ export function getRegionDefs(cfg: BodyCfg): RegionDef[] {
     },
     {
       id: "amortisor",
-      anchor: new THREE.Vector3(cfg.rearX, cfg.wheelY + 0.28, 0),
+      anchor: new THREE.Vector3((cfg.frontX + cfg.rearX) / 2, cfg.wheelY + 0.28, 0),
       glowScale: 1.6,
       hits: [
         { center: new THREE.Vector3(cfg.rearX, cfg.wheelY + 0.2, 0.55), radius: 0.42 },
@@ -68,7 +68,7 @@ export function getRegionDefs(cfg: BodyCfg): RegionDef[] {
       // merkeze/göbeğe yakın tıklama fren'i, dış lastik yüzeyine yakın tıklama lastik'i
       // seçer. Arka tekerlekte fren bölgesi yok, çakışma söz konusu değil.
       id: "lastik",
-      anchor: new THREE.Vector3(cfg.frontX, cfg.wheelY, cfg.bodyHalfW + wR * 0.3),
+      anchor: new THREE.Vector3((cfg.frontX + cfg.rearX) / 2, cfg.wheelY, 0),
       glowScale: 1.5,
       hits: [
         { center: new THREE.Vector3(cfg.frontX, cfg.wheelY, cfg.bodyHalfW + wR * 0.6), radius: wR * 0.8 },

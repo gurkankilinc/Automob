@@ -134,10 +134,14 @@ function initLoginScreen(): void {
     location.reload();
   });
 
-  // Hem giriş ekranındaki hem header'daki tema düğmesi — ikisi de her zaman DOM'da var
-  for (const btn of document.querySelectorAll<HTMLButtonElement>(".theme-toggle")) {
-    btn.addEventListener("click", () => theme.toggle());
-  }
+  // Delegated theme toggle listener (tüm tema düğmeleri için — SVG/path dahil güvenli tıklama)
+  document.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".theme-toggle");
+    if (btn) {
+      e.preventDefault();
+      theme.toggle();
+    }
+  });
 }
 
 // ---------- Backend veri yükleme ----------
@@ -361,6 +365,34 @@ async function start(): Promise<void> {
   });
   scene.onPartToggled = () => syncPartButtons();
   syncPartButtons();
+
+  // ---------- 3B Parça İnceleme Butonları ----------
+  const inspectBtns = document.querySelectorAll<HTMLButtonElement>(".inspect-btn[data-region]");
+  const inspectClearBtn = document.getElementById("inspect-clear") as HTMLButtonElement;
+
+  for (const b of inspectBtns) {
+    b.addEventListener("click", () => {
+      const region = b.dataset.region as RegionId;
+      scene.inspectRegion(region);
+      syncInspectButtons();
+    });
+  }
+
+  inspectClearBtn?.addEventListener("click", () => {
+    scene.inspectRegion(null);
+    syncInspectButtons();
+  });
+
+  function syncInspectButtons() {
+    for (const b of inspectBtns) {
+      const isActive = scene.activeRegion === b.dataset.region;
+      b.classList.toggle("open", isActive);
+    }
+  }
+
+  scene.onInspectRegionChanged = () => {
+    syncInspectButtons();
+  };
 
   // ---------- Kamera ön ayarları ----------
   const camButtons = [...document.querySelectorAll<HTMLButtonElement>(".cam")];

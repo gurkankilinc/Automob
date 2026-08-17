@@ -10,14 +10,15 @@
 import { api } from "../api/client";
 import { wheelSvg, wordmark } from "./brandArt";
 
-const SPIN_IDLE = "5.5s";
-const SPIN_HOVER = "2.4s";
-const SPIN_BUSY = "0.45s";
-const SPIN_LAUNCH = "0.28s";
+/** Dönüş hızları (derece/saniye) — JS animasyon döngüsü kullanır */
+const RPM_IDLE   = 65;   // 65°/s → ~5.5s/tur
+const RPM_HOVER  = 150;  // 150°/s → ~2.4s/tur
+const RPM_BUSY   = 800;  // 800°/s → ~0.45s/tur
+const RPM_LAUNCH = 1285; // 1285°/s → ~0.28s/tur
 
 const TAGLINES = [
   "3B araç görünümü üzerinden servis kaydı",
-  "Kaporta geçmişi, panel panel şeffaf",
+  "Her bakım kaydı, her detay; araç geçmişi tek yerde",
   "Bakım takvimi her zaman bir adım önde",
 ];
 
@@ -61,30 +62,82 @@ function streaks(): string {
     .join("");
 }
 
-// ---------- Dönüş hızı ----------
+// ---------- JS tabanlı dönüş motoru ----------
+// CSS animation-duration değişince animasyon sıfırlanır ve atlama oluşur.
+// Bunun yerine açıyı JS ile hesaplayıp doğrudan transform yazıyoruz;
+// böylece hız değişse de süreklilik bozulmaz.
 
 let stageEl: HTMLElement | null = null;
 let busy = false;
 
-function setSpin(dur: string): void {
-  stageEl?.style.setProperty("--spin-dur", dur);
+/** Anlık hedef dönüş hızı (derece/saniye) */
+let targetDps = RPM_IDLE;
+/** Yumuşatılmış anlık hız */
+let currentDps = RPM_IDLE;
+/** Birikmiş açı (derece) */
+let angle = 0;
+/** Bir önceki frame zaman damgası */
+let lastTs = 0;
+/** Animasyon döngüsü aktif mi */
+let rafId = 0;
+
+function spinFrame(ts: number): void {
+  const dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.1) : 0;
+  lastTs = ts;
+  // Hızı yumuşat (exponential smoothing)
+  const alpha = 1 - Math.exp(-dt * 5);
+  currentDps += (targetDps - currentDps) * alpha;
+  angle += currentDps * dt;
+  // Tüm .w-spin ve .w-blur + .o-spin + .hero-road::after elementlerine uygula
+  if (stageEl) {
+    const spinEls = stageEl.querySelectorAll<SVGElement>(".w-spin");
+    const blurEls = stageEl.querySelectorAll<SVGElement>(".w-blur");
+    const oSpin   = stageEl.querySelectorAll<SVGElement>(".o-spin");
+    for (const el of spinEls) el.style.transform = `rotate(${angle}deg)`;
+    for (const el of blurEls) el.style.transform = `rotate(${angle * 0.55}deg)`;
+    for (const el of oSpin)   el.style.transform = `rotate(${angle * 1.6}deg)`;
+    // Yol şeridini de senkronize et: tekerlekle aynı oran
+    const road = stageEl.querySelector<HTMLElement>(".hero-road");
+    if (road) {
+      // yol hareketini yüzdesel pozisyonla ifade et
+      const roadPos = ((angle * 0.2) % 56);
+      road.style.setProperty("--road-offset", `${-roadPos}px`);
+    }
+  }
+  rafId = requestAnimationFrame(spinFrame);
+}
+
+function startSpinLoop(): void {
+  if (rafId) return;
+  lastTs = 0;
+  rafId = requestAnimationFrame(spinFrame);
+}
+
+function stopSpinLoop(): void {
+  cancelAnimationFrame(rafId);
+  rafId = 0;
+}
+
+function setSpin(dps: number): void {
+  targetDps = dps;
 }
 
 /** Doğrulama sürerken tekerlek hızlanır — beklemenin görsel karşılığı. */
 export function setAuthBusy(on: boolean): void {
   busy = on;
   document.getElementById("login-submit")?.classList.toggle("busy", on);
-  setSpin(on ? SPIN_BUSY : SPIN_IDLE);
+  setSpin(on ? RPM_BUSY : RPM_IDLE);
 }
 
 /** Giriş başarılı: tekerlek kalkışa geçer, kabuk büyüyerek kaybolur. */
 export function playLaunch(): Promise<void> {
   const screen = document.getElementById("login-screen");
   if (!screen || reduced()) return Promise.resolve();
-  setSpin(SPIN_LAUNCH);
+  setSpin(RPM_LAUNCH);
   screen.classList.add("launching");
   return new Promise((resolve) => {
     window.setTimeout(() => {
+      stopSpinLoop();
       screen.classList.remove("launching");
       resolve();
     }, 500);
@@ -130,7 +183,7 @@ function initStageMotion(stage: HTMLElement): void {
 
   stage.addEventListener("pointermove", (e) => {
     if (e.pointerType !== "mouse") return;
-    if (!busy) setSpin(SPIN_HOVER);
+    if (!busy) setSpin(RPM_HOVER);
     if (!core) return;
     const r = stage.getBoundingClientRect();
     const dx = (e.clientX - r.left) / r.width - 0.5;
@@ -140,7 +193,7 @@ function initStageMotion(stage: HTMLElement): void {
   });
 
   stage.addEventListener("pointerleave", () => {
-    if (!busy) setSpin(SPIN_IDLE);
+    if (!busy) setSpin(RPM_IDLE);
     core?.style.setProperty("--tx", "0deg");
     core?.style.setProperty("--ty", "0deg");
   });
@@ -199,6 +252,9 @@ export function initLoginStage(): void {
     buildStage(stageEl);
     initTaglines();
     initStageMotion(stageEl);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      startSpinLoop();
+    }
   }
 
   initPasswordToggle();

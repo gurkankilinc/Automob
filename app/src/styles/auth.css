@@ -225,12 +225,13 @@
 
 .w-spin {
   transform-origin: 120px 120px;
-  animation: auth-spin var(--spin-dur) linear infinite;
+  /* transform: JS tarafından her frame yazılır */
 }
 .w-blur {
   transform-origin: 120px 120px;
-  animation: auth-spin calc(var(--spin-dur) * 0.55) linear infinite;
+  /* transform: JS tarafından her frame yazılır */
 }
+/* auth-spin sadece CTA spinner için korunur */
 @keyframes auth-spin { to { transform: rotate(360deg); } }
 
 .w-tire      { fill: none; stroke: #1b2029; stroke-width: 26; }
@@ -280,9 +281,10 @@
   opacity: 0.55;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
-  animation: auth-road calc(var(--spin-dur) * 0.2) linear infinite;
+  /* JS --road-offset ile senkronize edilir; CSS animasyon yok */
+  transform: translateX(var(--road-offset, 0px));
 }
-@keyframes auth-road { to { transform: translateX(-56px); } }
+/* JS override yoksa (reduced motion): sabitle */
 
 /* ---------- Logo yazısı ---------- */
 .hero-word {
@@ -342,7 +344,7 @@
 .hw-o svg { display: block; width: 100%; height: 100%; }
 .hw-o .o-spin {
   transform-origin: 24px 24px;
-  animation: auth-spin calc(var(--spin-dur) * 1.6) linear infinite;
+  /* transform: JS tarafından her frame yazılır */
 }
 
 /* ---------- Dönen slogan ---------- */
@@ -397,22 +399,31 @@
   display: flex;
   align-items: center;
   background: var(--card);
+  overflow-x: hidden;
 }
-/* Üst kenardaki akan ışık şeridi */
+/* Üst kenardaki akan ışık şeridi — soldan sağa sürekli kayar, loop anında her iki uç da ekran dışında → kesme yok */
 .auth-panel::before {
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--schema), transparent);
-  background-size: 55% 100%;
-  background-repeat: no-repeat;
-  animation: auth-edge 4.5s ease-in-out infinite;
-  opacity: 0.8;
+  /* Gradient: ortada sarı, kenarlar saydam — translateX ile hareket eder */
+  background: linear-gradient(90deg, transparent 0%, var(--schema) 40%, var(--schema) 60%, transparent 100%);
+  opacity: 0.85;
+  animation: auth-edge 3.4s linear infinite;
+}
+/* Koyu tema: daha parlak */
+:root[data-theme="dark"] .auth-panel::before {
+  opacity: 1;
+}
+/* Açık tema: daha koyu/görünür sarı */
+:root:not([data-theme="dark"]) .auth-panel::before {
+  background: linear-gradient(90deg, transparent 0%, #b8860b 40%, #d4a017 60%, transparent 100%);
+  opacity: 0.9;
 }
 @keyframes auth-edge {
-  0%   { background-position: -60% 0; }
-  100% { background-position: 160% 0; }
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 
 .login-card {
@@ -770,14 +781,10 @@
   .stage-eyebrow,
   .se-dot,
   .hero-streaks i,
-  .w-spin,
-  .w-blur,
   .w-heat,
-  .hero-road::after,
   .hero-word,
   .hw-l,
   .hw-o,
-  .hw-o .o-spin,
   .hero-tagline,
   .ht-text.swap,
   .stage-features li,
@@ -791,6 +798,7 @@
   .w-heat { opacity: 0.4; }
   .hero-streaks { display: none; }
   .stage-core { transition: none; transform: none !important; }
+  /* Tekerlek ve yol: reduced motion'da JS döngüsü çalışmaz, transform sıfır kalır */
   .login-input, .field .field-label, .f-line, #login-submit::after,
   .login-demo-row .chip-btn { transition: none; }
 }
