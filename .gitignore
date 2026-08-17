@@ -4,5 +4,8 @@ Thumbs.db
 .idea/
 *.swp
 
+# Claude Code yerel ayarları (makineye özel — repoda paylaşılmaz)
+.claude/
+
 # Alt projelerin kendi .gitignore'ları node_modules/dist/.gradle/build/*.db/uploads
 # gibi üretim çıktılarını zaten kapsıyor (app/.gitignore, server/.gitignore).
