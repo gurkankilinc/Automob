@@ -9,8 +9,6 @@ export const demoVehicle = {
   vin: "VF1···847",
   bodyType: "sedan" as BodyType,
   km: 84_500,
-  nextServiceKm: 90_000,
-  lastServiceKm: 71_000,
   owner: "A. Yılmaz",
   phone: "0532 ··· ·· 41",
 };

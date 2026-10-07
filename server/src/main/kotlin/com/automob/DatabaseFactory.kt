@@ -2,9 +2,11 @@ package com.automob
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.statements.StatementType
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 
@@ -20,6 +22,7 @@ object DatabaseFactory {
     fun init(dbPath: String = "automob.db") {
         Database.connect("jdbc:sqlite:$dbPath", driver = "org.sqlite.JDBC")
         transaction {
+            dropObsoleteColumns()
             SchemaUtils.createMissingTablesAndColumns(
                 Vehicles, ServiceRecords, RecordItems, Suggestions, Users, BodyPanels,
             )
@@ -29,53 +32,80 @@ object DatabaseFactory {
         }
     }
 
+    /**
+     * Koddan kaldırılmış kolonlar (bkz. docs/VERITABANI.md §2.1). Hepsi NOT NULL
+     * olduğundan eski bir `automob.db` içinde kalırlarsa yeni INSERT'ler hata verir.
+     */
+    private val OBSOLETE_COLUMNS = mapOf(
+        "service_records" to listOf("date"),
+        "vehicles" to listOf("next_service_km", "last_service_km"),
+    )
+
+    /**
+     * `createMissingTablesAndColumns` kolon ekleyebilir ama silemez; bu yüzden
+     * burada elle siliniyor. Kolon (ya da tablo) yoksa hiçbir şey yapmaz, her
+     * açılışta güvenle çalışır. Flyway'e geçildiğinde (§4 adım 2) sürümlü bir göç
+     * dosyasına taşınacak.
+     */
+    private fun Transaction.dropObsoleteColumns() {
+        for ((table, columns) in OBSOLETE_COLUMNS) {
+            val existing = mutableSetOf<String>()
+            exec("PRAGMA table_info($table)", explicitStatementType = StatementType.SELECT) { rs ->
+                while (rs.next()) existing += rs.getString("name")
+            }
+            for (column in columns.filter { it in existing }) {
+                exec("ALTER TABLE $table DROP COLUMN $column")
+            }
+        }
+    }
+
     /** İşletme "Müşteriler" arama listesi için 10 müşteri/araç — tek satır = tek müşteri (bkz. docs/VERITABANI.md §2.3). */
     private data class DemoCustomer(
         val customerId: String, val plate: String, val displayPlate: String, val model: String, val year: Int,
-        val vin: String, val bodyType: String, val km: Int, val nextServiceKm: Int, val lastServiceKm: Int,
+        val vin: String, val bodyType: String, val km: Int,
         val owner: String, val phone: String, val ownerEmail: String?,
     )
 
     private val DEMO_CUSTOMERS = listOf(
         DemoCustomer(
             "MST-001", "34ABC123", "34 ABC 123", "Renault Megane", 2019, "VF1···847", "sedan",
-            84_500, 90_000, 71_000, "A. Yılmaz", "0532 ··· ·· 41", "musteri@example.com",
+            84_500, "A. Yılmaz", "0532 ··· ·· 41", "musteri@example.com",
         ),
         DemoCustomer(
             "MST-002", "06XYZ99", "06 XYZ 99", "Fiat Egea", 2021, "NM0···512", "sedan",
-            42_000, 50_000, 40_000, "B. Demir", "0533 ··· ·· 12", "baska@example.com",
+            42_000, "B. Demir", "0533 ··· ·· 12", "baska@example.com",
         ),
         DemoCustomer(
             "MST-003", "34DEF456", "34 DEF 456", "Toyota Corolla", 2020, "SB1···233", "sedan",
-            56_300, 60_000, 50_000, "C. Kaya", "0535 ··· ·· 77", null,
+            56_300, "C. Kaya", "0535 ··· ·· 77", null,
         ),
         DemoCustomer(
             "MST-004", "06GHI789", "06 GHI 789", "Volkswagen Golf", 2018, "WVW···104", "hatchback",
-            112_800, 120_000, 100_000, "D. Şahin", "0536 ··· ·· 19", null,
+            112_800, "D. Şahin", "0536 ··· ·· 19", null,
         ),
         DemoCustomer(
             "MST-005", "35JKL321", "35 JKL 321", "Hyundai Tucson", 2022, "KMH···588", "suv",
-            18_400, 20_000, 10_000, "E. Çelik", "0530 ··· ·· 63", null,
+            18_400, "E. Çelik", "0530 ··· ·· 63", null,
         ),
         DemoCustomer(
             "MST-006", "16MNO654", "16 MNO 654", "Ford Focus", 2017, "WF0···931", "hatchback",
-            138_950, 140_000, 130_000, "F. Arslan", "0538 ··· ·· 08", null,
+            138_950, "F. Arslan", "0538 ··· ·· 08", null,
         ),
         DemoCustomer(
             "MST-007", "34PQR987", "34 PQR 987", "Honda CR-V", 2021, "SHH···276", "suv",
-            31_200, 40_000, 30_000, "G. Doğan", "0532 ··· ·· 95", null,
+            31_200, "G. Doğan", "0532 ··· ·· 95", null,
         ),
         DemoCustomer(
             "MST-008", "07STU159", "07 STU 159", "Peugeot 301", 2016, "VF3···410", "sedan",
-            164_700, 170_000, 160_000, "H. Aydın", "0533 ··· ·· 26", null,
+            164_700, "H. Aydın", "0533 ··· ·· 26", null,
         ),
         DemoCustomer(
             "MST-009", "34VWX753", "34 VWX 753", "Škoda Octavia", 2023, "TMB···829", "sedan",
-            9_100, 15_000, 0, "I. Koç", "0537 ··· ·· 44", null,
+            9_100, "I. Koç", "0537 ··· ·· 44", null,
         ),
         DemoCustomer(
             "MST-010", "06YZA246", "06 YZA 246", "Dacia Duster", 2019, "UU1···367", "suv",
-            73_600, 80_000, 70_000, "J. Yıldız", "0534 ··· ·· 82", null,
+            73_600, "J. Yıldız", "0534 ··· ·· 82", null,
         ),
     )
 
@@ -92,8 +122,6 @@ object DatabaseFactory {
                 it[vin] = c.vin
                 it[bodyType] = c.bodyType
                 it[km] = c.km
-                it[nextServiceKm] = c.nextServiceKm
-                it[lastServiceKm] = c.lastServiceKm
                 it[owner] = c.owner
                 it[phone] = c.phone
                 it[ownerEmail] = c.ownerEmail
@@ -104,7 +132,6 @@ object DatabaseFactory {
         // görünmemesi için.
         val rec1 = ServiceRecords.insert {
             it[vehiclePlate] = "34ABC123"
-            it[date] = "10 Kas 2025"
             it[dateIso] = "2025-11-10"
             it[km] = 71_000
         } get ServiceRecords.id
@@ -116,7 +143,6 @@ object DatabaseFactory {
         }
         val rec2 = ServiceRecords.insert {
             it[vehiclePlate] = "34ABC123"
-            it[date] = "12 Mar 2026"
             it[dateIso] = "2026-03-12"
             it[km] = 78_200
         } get ServiceRecords.id
@@ -143,7 +169,6 @@ object DatabaseFactory {
         // MST-004 — yüksek km, gecikmiş bakım senaryosu (arama listesinde çeşitlilik için).
         val rec3 = ServiceRecords.insert {
             it[vehiclePlate] = "06GHI789"
-            it[date] = "02 Oca 2025"
             it[dateIso] = "2025-01-02"
             it[km] = 100_000
         } get ServiceRecords.id
@@ -157,7 +182,6 @@ object DatabaseFactory {
         // MST-008 — eski/yüksek km araç, kaporta geçmişi olan (bkz. seedPanelsIfEmpty).
         val rec4 = ServiceRecords.insert {
             it[vehiclePlate] = "07STU159"
-            it[date] = "20 Ağu 2025"
             it[dateIso] = "2025-08-20"
             it[km] = 160_000
         } get ServiceRecords.id

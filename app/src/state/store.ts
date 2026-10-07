@@ -21,8 +21,7 @@ export interface CartItem {
 }
 
 export interface ServiceRecord {
-  date: string;
-  /** ISO 8601 (yyyy-MM-dd) — bakım hatırlatma hesaplarında kullanılır */
+  /** ISO 8601 (yyyy-MM-dd). Ekrandaki biçim formatDate() ile üretilir. */
   dateIso: string;
   km: number;
   items: { region: RegionId | null; title: string; price: number | null; photos?: string[] }[];
@@ -31,6 +30,51 @@ export interface ServiceRecord {
 let nextId = 1;
 const listeners = new Set<() => void>();
 const addListeners = new Set<(region: RegionId) => void>();
+
+/**
+ * Devam eden servis sepeti araç başına tarayıcıda saklanır: sayfa yenilense,
+ * sekme kapansa ya da usta başka müşteriye geçip geri dönse yarım kalan iş kaybolmaz.
+ * Kayıt tamamlanınca işlem kalemleri taslaktan düşer; karar bekleyen öneriler kalır.
+ */
+const DRAFT_PREFIX = "automob_draft_";
+
+function draftKey(plate: string): string {
+  return DRAFT_PREFIX + plate.replace(/\s+/g, "").toUpperCase();
+}
+
+/** Aktif araç — taslağın hangi anahtara yazılacağını belirler. */
+let draftPlate: string | null = null;
+
+/**
+ * blob: URL'leri yalnızca o oturum boyunca geçerlidir (fotoğraf yüklenemediğinde
+ * sepete böyle bir önizleme düşebiliyor). Taslağa yazarken elenir; aksi hâlde
+ * yenilemeden sonra kırık görsel olarak geri gelirler.
+ */
+function durablePhotos(photos?: string[]): string[] | undefined {
+  const kept = photos?.filter((p) => !p.startsWith("blob:"));
+  return kept?.length ? kept : undefined;
+}
+
+function persistCart(): void {
+  if (!draftPlate) return;
+  try {
+    const payload = store.cart.map((i) => ({ ...i, photos: durablePhotos(i.photos) }));
+    localStorage.setItem(draftKey(draftPlate), JSON.stringify(payload));
+  } catch {
+    // kota dolu / gizli sekme — kalıcılık kaybı kritik değil, akış sürsün
+  }
+}
+
+function readDraft(plate: string): CartItem[] | null {
+  try {
+    const raw = localStorage.getItem(draftKey(plate));
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw) as CartItem[];
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface PanelStatus {
   state: PanelState;
@@ -72,12 +116,31 @@ export const store = {
     addListeners.add(fn);
   },
 
+  /**
+   * Aktif aracın sepetini yükler. Saklı taslak varsa ondan devam edilir; hiç
+   * taslak yazılmamışsa (ilk açılış) demo aracı için tanıtım sepeti kurulur ve
+   * hemen taslağa yazılır — sonraki ziyarette yeniden üretilmez.
+   *
+   * `useDraft: false` (müşteri rolü): taslak ne okunur ne yazılır; yalnızca
+   * tanıtım sepeti gösterilir. Taslaklar işletmenin kaydedilmemiş işidir.
+   */
+  loadCartFor(plate: string, { useDraft = true }: { useDraft?: boolean } = {}): void {
+    draftPlate = useDraft ? plate : null;
+    const saved = useDraft ? readDraft(plate) : null;
+    this.cart = saved ?? (draftKey(plate) === draftKey(DEMO_PLATE) ? demoCart() : []);
+    if (saved === null && this.cart.length > 0) persistCart();
+    // Saklı kalemlerin id'leri yeniden kullanılmasın
+    nextId = Math.max(nextId, ...this.cart.map((i) => i.id + 1), 1);
+    this.notify();
+  },
+
   addItem(
     region: RegionId, title: string, price: number,
     kind: ItemKind = "islem", note?: string, photos?: string[],
   ): boolean {
     if (this.cart.some((i) => i.region === region && i.title === title)) return false;
     this.cart.push({ id: nextId++, region, title, price, kind, note, photos });
+    persistCart();
     for (const fn of addListeners) fn(region); // notify öncesi: syncScene güncel hidden görsün
     this.notify();
     return true;
@@ -85,6 +148,7 @@ export const store = {
 
   removeItem(id: number): void {
     this.cart = this.cart.filter((i) => i.id !== id);
+    persistCart();
     this.notify();
   },
 
@@ -94,13 +158,13 @@ export const store = {
     if (done.length === 0) return null;
     const now = new Date();
     const record: ServiceRecord = {
-      date: now.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }),
       dateIso: now.toISOString().slice(0, 10),
       km,
       items: done.map((i) => ({ region: i.region, title: i.title, price: i.price, photos: i.photos })),
     };
     this.history.unshift(record);
     this.cart = this.cart.filter((i) => i.kind === "oneri");
+    persistCart(); // kaydedilen kalemler düştü; karar bekleyen öneriler taslakta kalır
     this.notify();
     return record;
   },
@@ -136,23 +200,29 @@ function placeholderPhoto(label: string): string {
 }
 
 // ---- Demo başlangıç verisi ----
-store.cart = [
-  { id: nextId++, region: "motor", title: "Motor yağı + 3 filtre", price: 2450, kind: "islem" },
-  {
-    id: nextId++, region: "fren", title: "Balata seti (ön)", price: 1870, kind: "islem",
-    note: "aşınma sınırında",
-    photos: [placeholderPhoto("BALATA-ON-01"), placeholderPhoto("BALATA-ON-02")],
-  },
-  {
-    id: nextId++, region: "amortisor", title: "Amortisör (arka çift)", price: 3200, kind: "oneri",
-    note: "sızıntı gözlendi",
-    photos: [placeholderPhoto("AMORTISOR-01")],
-  },
-];
+
+/** Tanıtım sepetinin bağlı olduğu araç — yalnızca bu araçta ve ilk açılışta kurulur. */
+const DEMO_PLATE = "34 ABC 123";
+
+/** Demo aracın tanıtım sepeti. Kullanıcı bir kez dokununca yerini taslak alır. */
+function demoCart(): CartItem[] {
+  return [
+    { id: nextId++, region: "motor", title: "Motor yağı + 3 filtre", price: 2450, kind: "islem" },
+    {
+      id: nextId++, region: "fren", title: "Balata seti (ön)", price: 1870, kind: "islem",
+      note: "aşınma sınırında",
+      photos: [placeholderPhoto("BALATA-ON-01"), placeholderPhoto("BALATA-ON-02")],
+    },
+    {
+      id: nextId++, region: "amortisor", title: "Amortisör (arka çift)", price: 3200, kind: "oneri",
+      note: "sızıntı gözlendi",
+      photos: [placeholderPhoto("AMORTISOR-01")],
+    },
+  ];
+}
 
 store.history = [
   {
-    date: "12 Mar 2026",
     dateIso: "2026-03-12",
     km: 78200,
     items: [
@@ -161,7 +231,6 @@ store.history = [
     ],
   },
   {
-    date: "10 Kas 2025",
     dateIso: "2025-11-10",
     km: 71000,
     items: [{ region: "motor", title: "Periyodik bakım — yağ + 3 filtre", price: 2200 }],
@@ -170,4 +239,13 @@ store.history = [
 
 export function formatTL(v: number): string {
   return `${v.toLocaleString("tr-TR")}₺`;
+}
+
+/**
+ * yyyy-MM-dd → "12 Mar 2026". Tarih yerel gün olarak kurulur; `new Date(iso)`
+ * UTC gece yarısı sayar ve batı saat dilimlerinde bir önceki güne kayar.
+ */
+export function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }

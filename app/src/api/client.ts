@@ -10,15 +10,17 @@ export interface ApiService {
   phone: string;
 }
 
+/** Backend'deki BodyType enum'u ile birebir — scene/carWireframe.ts BodyType ile de eşleşir. */
+export type ApiBodyType =
+  | "sedan" | "hatchback" | "suv" | "minibus" | "kamyon" | "otobus" | "tir" | "motor";
+
 export interface ApiVehicle {
   plate: string;
   model: string;
   year: number;
   vin: string;
-  bodyType: "sedan" | "hatchback" | "suv";
+  bodyType: ApiBodyType;
   km: number;
-  nextServiceKm: number;
-  lastServiceKm: number;
   owner: string;
   phone: string;
   customerId: string;
@@ -53,7 +55,7 @@ export interface ApiRecordItem {
 
 export interface ApiRecord {
   id: number;
-  date: string;
+  /** yyyy-MM-dd — ekranda formatDate() ile gösterilir */
   dateIso: string;
   km: number;
   items: ApiRecordItem[];
@@ -158,6 +160,16 @@ export const api = {
     j<ApiCustomerSummary[]>(`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   getCustomerVehicle: (customerId: string) =>
     j<ApiVehicle>(`/customers/${encodeURIComponent(customerId)}`),
+
+  /**
+   * Araç alanlarını kısmi günceller (servis girişi km'si / kasa tipi düzeltmesi).
+   * Sunucu km'yi geriye almaz — çağıran taraf dönen aracı esas almalı.
+   */
+  updateVehicle: (plate: string, body: { km?: number; bodyType?: ApiBodyType }) =>
+    j<ApiVehicle>(`/vehicles/${encodeURIComponent(plate)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
 
   createRecord: (plate: string, body: { km: number; items: ApiRecordItem[] }) =>
     j<ApiRecord>(`/vehicles/${encodeURIComponent(plate)}/records`, {

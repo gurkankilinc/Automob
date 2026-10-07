@@ -78,6 +78,23 @@ fun Application.configureRouting() {
                     call.respond(Repository.reminders(plate))
                 }
 
+                /**
+                 * Servis girişinde okunan km ve kasa tipi düzeltmesi. Kısmi güncelleme:
+                 * gövdede verilmeyen alan değişmez. Güncel araç kaydını döner — km
+                 * sunucuda geriye alınmadığı için istemci yanıttaki değeri esas almalı.
+                 */
+                patch {
+                    val plate = call.parameters["plate"]!!
+                    if (!call.vehicleAccess(plate, write = true)) return@patch
+                    val req = call.receive<UpdateVehicleRequest>()
+                    if (req.km != null && req.km !in 0..5_000_000) {
+                        return@patch call.respond(HttpStatusCode.BadRequest, ApiError("Geçersiz km değeri."))
+                    }
+                    val updated = Repository.updateVehicle(plate, req)
+                        ?: return@patch call.respond(HttpStatusCode.NotFound, ApiError("Araç bulunamadı: $plate"))
+                    call.respond(updated)
+                }
+
                 post("/records") {
                     val plate = call.parameters["plate"]!!
                     if (!call.vehicleAccess(plate, write = true)) return@post

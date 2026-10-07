@@ -13,9 +13,9 @@ bilerek ilerlemek.
 
 ```
 vehicles(plate PK, customer_id UNIQUE, display_plate, model, year, vin, body_type,
-         km, next_service_km, last_service_km, owner, phone, owner_email)
+         km, owner, phone, owner_email)
    │
-   ├─< service_records(id PK, vehicle_plate FK, date, date_iso, km)
+   ├─< service_records(id PK, vehicle_plate FK, date_iso, km)
    │        └─< record_items(id PK, record_id FK, region, title, price, photos_json)
    ├─< suggestions(id PK, vehicle_plate FK, region, title, price, note)
    └─< body_panels(id PK, vehicle_plate FK, panel_id, state, note,
@@ -36,23 +36,26 @@ tercih; çok işletmeli sürümde ilk üçü tabloya inmek zorunda (bkz. §3).
 
 Öncelik sırası, "ne zaman canımızı yakar" ölçütüne göre.
 
-### 2.1 Şimdi düzeltilmeli (ucuz, sonra pahalı)
+### 2.1 Şimdi düzeltilmeli (ucuz, sonra pahalı) — ✅ tamamlandı
 
-**FK kolonlarında indeks yok.** `service_records.vehicle_plate`,
-`record_items.record_id`, `suggestions.vehicle_plate` indekssiz. SQLite yabancı
-anahtarları otomatik indekslemez; bugün 5 kayıtla fark edilmiyor ama araç detay
-sayfasının her açılışı tam tablo taraması. Tek satırlık düzeltme.
+**FK kolonlarında indeks yok.** ✅ `service_records.vehicle_plate`,
+`record_items.record_id`, `suggestions.vehicle_plate` artık indeksli
+(`Tables.kt` → `index(false, …)`). SQLite yabancı anahtarları otomatik
+indekslemez; olmasa araç detay sayfasının her açılışı tam tablo taraması olurdu.
 
-**Gösterim biçimi veritabanında.** `service_records` hem `date` ("12 Mar 2026",
-Türkçe) hem `date_iso` tutuyor. Yerelleştirilmiş metin depolama katmanına
-sızmış: dil değişirse veri yanlışlanır, tarihe göre sıralama/aralık sorgusu
-`date` üzerinden çalışmaz. Tek `date` (DATE/ISO) yeterli, biçimleme sunum
-katmanının işi.
+**Gösterim biçimi veritabanında.** ✅ `service_records.date` ("12 Mar 2026",
+Türkçe) kaldırıldı; yalnızca `date_iso` kalıyor. API de artık sadece `dateIso`
+döner; ekrandaki biçim istemcide `formatDate()` ile üretilir
+(`app/src/state/store.ts`).
 
-**Türetilmiş alanlar çift kaynak.** `vehicles.next_service_km` /
-`last_service_km` duruyor ama hatırlatmalar zaten `service_records`'tan
-hesaplanıyor (`Repository.reminders`). İki kaynak er ya da geç çelişir. Ya
-kolonları kaldır, ya hesabı tek yere sabitle.
+**Türetilmiş alanlar çift kaynak.** ✅ `vehicles.next_service_km` /
+`last_service_km` kaldırıldı. Hatırlatmaların tek kaynağı `service_records`
+(`Repository.reminders`).
+
+Kolon silme `createMissingTablesAndColumns` ile yapılamadığı için mevcut
+`automob.db` dosyalarında `DatabaseFactory.dropObsoleteColumns()` elle yapıyor
+(idempotent, her açılışta çalışır). Bu, Flyway'e geçişin (§4 adım 2) neden
+gerekli olduğunun küçük bir örneği; o adımda sürümlü göç dosyasına taşınacak.
 
 ### 2.2 Çok işletmeli (B2B SaaS) sürümden önce
 
@@ -147,8 +150,8 @@ kayıt defteri + güncel durumun ondan türetilmesi daha güçlü olur.
 
 ## 4. Göç sırası
 
-1. **Şimdi:** FK indeksleri, `date` sadeleştirmesi, türetilmiş km kolonlarının
-   kaldırılması. (Kırıcı değil, tek oturumluk iş.)
+1. ✅ **Şimdi:** FK indeksleri, `date` sadeleştirmesi, türetilmiş km kolonlarının
+   kaldırılması. (Tamamlandı — bkz. §2.1.)
 2. **Flyway'e geç.** Mevcut şemayı `V1__baseline.sql` olarak dondur; bundan
    sonraki her değişiklik sürümlü göç dosyası. Bu adım atlanırsa 3 ve 4 riskli.
 3. **Kimlik düzeltmesi:** `vehicle_id` + VIN'e geçiş, `vehicle_plates` /

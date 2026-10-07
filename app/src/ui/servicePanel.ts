@@ -14,11 +14,13 @@ export function initServicePanel(opts: {
   onRegionRowClick: (id: RegionId) => void;
   onCartChanged: () => void;
   onSaveAndReport: () => void;
+  /** Servis girişinde okunan km değiştirildi — kalıcılaştırma çağıranın işi. */
+  onKmChange: (km: number) => void;
 }): void {
   const regionList = document.getElementById("region-list")!;
   const regionCount = document.getElementById("region-count")!;
   const cartList = document.getElementById("cart-list")!;
-  const cartKm = document.getElementById("cart-km")!;
+  const cartKm = document.getElementById("cart-km") as HTMLInputElement;
   const cartCount = document.getElementById("cart-count")!;
   const totalsEl = document.getElementById("totals")!;
   const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
@@ -61,7 +63,8 @@ export function initServicePanel(opts: {
   }
 
   function renderCart(): void {
-    cartKm.textContent = `Servis girişi · ${demoVehicle.km.toLocaleString("tr-TR")} km`;
+    // Kullanıcı yazarken değeri altından değiştirme — yalnızca odak dışındayken tazele
+    if (document.activeElement !== cartKm) cartKm.value = String(demoVehicle.km);
     cartList.innerHTML = "";
     for (const item of store.cart) {
       const div = document.createElement("div");
@@ -113,6 +116,29 @@ export function initServicePanel(opts: {
     });
     opts.onCartChanged();
   }
+
+  /** Km alanını doğrular ve değiştiyse dışarı bildirir; geçersiz giriş eski değere döner. */
+  function commitKm(): void {
+    const raw = cartKm.value.trim();
+    const km = Math.round(Number(raw));
+    if (raw === "" || !Number.isFinite(km) || km < 0) {
+      cartKm.value = String(demoVehicle.km);
+      return;
+    }
+    if (km === demoVehicle.km) return;
+    opts.onKmChange(km);
+  }
+
+  cartKm.addEventListener("change", commitKm); // odak kaybında ve Enter'da tetiklenir
+  cartKm.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      cartKm.blur();
+    } else if (e.key === "Escape") {
+      cartKm.value = String(demoVehicle.km);
+      cartKm.blur();
+    }
+  });
 
   document.getElementById("template-btn")!.addEventListener("click", () => {
     let added = 0;

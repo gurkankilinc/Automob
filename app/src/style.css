@@ -1399,7 +1399,12 @@ button {
   overflow: hidden;
 }
 
+/* Servis girişi km — düzenlenebilir alan; bakım hesabının girdisi olduğu için
+   rozet görünümünü korur ama odaklanınca form alanı gibi davranır. */
 .km-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-data);
   font-size: 12.5px;
   color: var(--muted);
@@ -1408,7 +1413,34 @@ button {
   border-radius: 7px;
   padding: 6px 10px;
   margin-bottom: 10px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
+.km-chip:focus-within {
+  border-color: var(--schema);
+  box-shadow: var(--ring);
+}
+.km-chip label {
+  flex: none;
+  letter-spacing: 0.02em;
+}
+.km-chip input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+.km-chip input::-webkit-outer-spin-button,
+.km-chip input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.km-chip input:focus { outline: none; }
+.km-unit { flex: none; color: var(--muted-2); }
 
 #cart-list {
   flex: 1;

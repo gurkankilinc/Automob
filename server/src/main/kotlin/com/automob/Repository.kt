@@ -12,7 +12,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.time.Instant
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
@@ -27,8 +26,6 @@ data class UserRecord(val email: String, val passwordHash: String, val role: Use
 object Repository {
 
     val service = ServiceInfo("USTA MOTORS", "Oto Servis & Bakım", "0212 000 00 00")
-
-    private val trDate = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale("tr"))
 
     val catalog = Catalog(
         regions = mapOf(
@@ -100,19 +97,24 @@ object Repository {
 
     private fun norm(plate: String) = plate.uppercase(Locale.ROOT).replace(" ", "")
 
+    /**
+     * Veritabanındaki kasa tipi anahtarı → enum. Anahtar, enum adının küçük harfi
+     * (JSON'daki @SerialName ile aynı); yeni kasa tipi yalnızca enum'a eklenir.
+     * Bilinmeyen değer sedan sayılır.
+     */
+    private fun parseBodyType(raw: String): BodyType =
+        runCatching { BodyType.valueOf(raw.uppercase(Locale.ROOT)) }.getOrDefault(BodyType.SEDAN)
+
+    /** Enum → veritabanı anahtarı. */
+    private fun bodyTypeKey(type: BodyType): String = type.name.lowercase(Locale.ROOT)
+
     private fun rowToVehicle(row: ResultRow) = Vehicle(
         plate = row[Vehicles.displayPlate],
         model = row[Vehicles.model],
         year = row[Vehicles.year],
         vin = row[Vehicles.vin],
-        bodyType = when (row[Vehicles.bodyType]) {
-            "hatchback" -> BodyType.HATCHBACK
-            "suv" -> BodyType.SUV
-            else -> BodyType.SEDAN
-        },
+        bodyType = parseBodyType(row[Vehicles.bodyType]),
         km = row[Vehicles.km],
-        nextServiceKm = row[Vehicles.nextServiceKm],
-        lastServiceKm = row[Vehicles.lastServiceKm],
         owner = row[Vehicles.owner],
         phone = row[Vehicles.phone],
         customerId = row[Vehicles.customerId],
@@ -180,7 +182,6 @@ object Repository {
                     }
                 ServiceRecord(
                     id = recId,
-                    date = rec[ServiceRecords.date],
                     dateIso = rec[ServiceRecords.dateIso],
                     km = rec[ServiceRecords.km],
                     items = items,
@@ -261,6 +262,27 @@ object Repository {
         PanelStatus(panelId, state, note, now, by)
     }
 
+    /**
+     * Araç alanlarını kısmi günceller (km / kasa tipi). Araç yoksa null döner.
+     * Km geriye alınamaz: sayaç ileri gider, hatalı düşük giriş bakım hesabını bozar.
+     */
+    fun updateVehicle(plate: String, req: UpdateVehicleRequest): Vehicle? = transaction {
+        val key = norm(plate)
+        val current = Vehicles.select { Vehicles.plate eq key }.firstOrNull() ?: return@transaction null
+
+        val newKm = req.km?.coerceAtLeast(current[Vehicles.km])
+        if (newKm != null || req.bodyType != null) {
+            Vehicles.update({ Vehicles.plate eq key }) {
+                if (newKm != null) it[km] = newKm
+                if (req.bodyType != null) it[bodyType] = bodyTypeKey(req.bodyType)
+            }
+        }
+        // Yalnızca bu iki alan değişebilir — satırı yeniden okumaya gerek yok
+        rowToVehicle(current).let { v ->
+            v.copy(km = newKm ?: v.km, bodyType = req.bodyType ?: v.bodyType)
+        }
+    }
+
     /** Yeni servis kaydı: geçmişe eklenir, aracın km'si güncellenir. */
     fun createRecord(plate: String, req: CreateRecordRequest): ServiceRecord? = transaction {
         val key = norm(plate)
@@ -269,7 +291,6 @@ object Repository {
         val today = LocalDate.now()
         val recId = ServiceRecords.insert {
             it[vehiclePlate] = key
-            it[date] = today.format(trDate)
             it[dateIso] = today.toString()
             it[km] = req.km
         } get ServiceRecords.id
@@ -285,7 +306,7 @@ object Repository {
         }
         Vehicles.update({ Vehicles.plate eq key }) { it[km] = req.km }
 
-        ServiceRecord(id = recId, date = today.format(trDate), dateIso = today.toString(), km = req.km, items = req.items)
+        ServiceRecord(id = recId, dateIso = today.toString(), km = req.km, items = req.items)
     }
 
     /**

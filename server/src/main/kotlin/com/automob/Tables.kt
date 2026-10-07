@@ -18,8 +18,6 @@ object Vehicles : Table("vehicles") {
     val vin = varchar("vin", 40)
     val bodyType = varchar("body_type", 20)
     val km = integer("km")
-    val nextServiceKm = integer("next_service_km")
-    val lastServiceKm = integer("last_service_km")
     val owner = varchar("owner", 80)
     val phone = varchar("phone", 40)
     /** Müşteri hesabı e-postası — musteri rolündeki kullanıcı yalnızca kendi aracına erişebilir. */
@@ -31,7 +29,7 @@ object Vehicles : Table("vehicles") {
 object ServiceRecords : Table("service_records") {
     val id = integer("id").autoIncrement()
     val vehiclePlate = varchar("vehicle_plate", 20).references(Vehicles.plate)
-    val date = varchar("date", 20)
+    /** yyyy-MM-dd. Gösterim biçimi (dil, ay adı) sunum katmanının işi. */
     val dateIso = varchar("date_iso", 12)
     val km = integer("km")
 

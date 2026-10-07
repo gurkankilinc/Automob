@@ -37,6 +37,11 @@ import { initChrome, syncTabIndicator } from "./ui/chrome";
 
 let apiOnline = false;
 let started = false;
+/**
+ * Yüklenen araç her değiştiğinde artar. Yanıtı beklenen bir yazma, dönüşte
+ * bu değer değişmişse (arada başka müşteriye geçildiyse) sonucu uygulamaz.
+ */
+let vehicleGeneration = 0;
 
 const ROLE_LABEL: Record<string, string> = { isletme: "İşletme", musteri: "Müşteri" };
 
@@ -156,13 +161,13 @@ async function loadVehicleByPlate(plate: string): Promise<boolean> {
       api.getPanels(plate),
     ]);
     Object.assign(demoVehicle, veh);
+    vehicleGeneration++;
     store.replacePanelStatus(panels.map((p) => ({
       panelId: p.panelId,
       state: p.state as PanelState,
       note: p.note ?? undefined,
     })));
     store.history.splice(0, store.history.length, ...recs.map((r) => ({
-      date: r.date,
       dateIso: r.dateIso,
       km: r.km,
       items: r.items.map((it) => ({
@@ -250,6 +255,10 @@ async function start(): Promise<void> {
   const bodyParam = new URLSearchParams(location.search).get("body");
   if (bodyParam && bodyParam in BODY_CONFIGS) demoVehicle.bodyType = bodyParam as BodyType;
 
+  // Yarım kalan servis sepetini geri yükle (araç belli olduktan sonra). Taslaklar
+  // işletmenin kaydedilmemiş işidir; müşteri aynı tarayıcıda girse de görmemeli.
+  store.loadCartFor(demoVehicle.plate, { useDraft: auth.user?.role !== "musteri" });
+
   await refreshReminders();
 
   // ---------- Sahne ----------
@@ -317,11 +326,27 @@ async function start(): Promise<void> {
   for (const b of bodySeg) {
     b.addEventListener("click", () => {
       const body = b.dataset.body as BodyType;
+      const previous = demoVehicle.bodyType;
+      if (body === previous) return;
       demoVehicle.bodyType = body;
       scene.setBodyType(body);
       syncScene();
       renderMeta(body);
       setActiveBody(body);
+      // Kasa tipi araç dosyasının parçası — seçim kalıcı olmalı, yoksa yenilemede
+      // eski modele döner. Yazma yalnızca işletme rolünde anlamlı.
+      if (apiOnline && auth.user?.role !== "musteri") {
+        const gen = vehicleGeneration;
+        api.updateVehicle(demoVehicle.plate, { bodyType: body }).catch(() => {
+          if (gen !== vehicleGeneration) return; // arada başka araca geçildi
+          demoVehicle.bodyType = previous;
+          scene.setBodyType(previous);
+          syncScene();
+          renderMeta(previous);
+          setActiveBody(previous);
+          showToast("Kasa tipi kaydedilemedi.");
+        });
+      }
     });
   }
 
@@ -495,10 +520,45 @@ async function start(): Promise<void> {
   });
 
   // ---------- Paneller ----------
+  /**
+   * Servis girişinde okunan km. Bakım hatırlatmaları sunucuda aracın km'sinden
+   * hesaplandığı için değer önce backend'e yazılır, sonra hatırlatmalar tazelenir.
+   * Sunucu km'yi geriye almaz — dönen kayıttaki değer esas alınır.
+   */
+  async function changeKm(km: number): Promise<void> {
+    const previous = demoVehicle.km;
+    demoVehicle.km = km;
+    renderMeta(demoVehicle.bodyType);
+    store.notify();
+
+    if (apiOnline) {
+      const gen = vehicleGeneration;
+      try {
+        const updated = await api.updateVehicle(demoVehicle.plate, { km });
+        if (gen !== vehicleGeneration) return; // arada başka araca geçildi
+        if (updated.km !== km) {
+          demoVehicle.km = updated.km;
+          renderMeta(demoVehicle.bodyType);
+          store.notify();
+          showToast(`Km geriye alınamaz — ${updated.km.toLocaleString("tr-TR")} km olarak kaldı.`);
+        }
+      } catch {
+        if (gen !== vehicleGeneration) return;
+        demoVehicle.km = previous;
+        renderMeta(demoVehicle.bodyType);
+        store.notify();
+        showToast("Km kaydedilemedi — sunucuya yazılamadı.");
+        return;
+      }
+    }
+    await refreshReminders();
+  }
+
   initServicePanel({
     onRegionRowClick: toggleRegion,
     onCartChanged: syncScene,
     onSaveAndReport: saveAndReport,
+    onKmChange: (km) => void changeKm(km),
   });
   initCustomerView({
     onTimelineRegionClick: (id) => {
@@ -511,8 +571,8 @@ async function start(): Promise<void> {
 
   // ---------- Müşteriler (arama) — yalnızca işletme rolü ----------
   // Bir müşteri seçilince tüm panolar (3D şema, servis geçmişi, kaporta durumu,
-  // hatırlatmalar) o müşterinin aracına geçer; önceki müşterinin devam eden
-  // sepeti (henüz kaydedilmemiş işlem/öneri) yeni müşteriye taşınmasın diye temizlenir.
+  // hatırlatmalar) o müşterinin aracına geçer. Sepet araç başına saklandığından
+  // önceki müşterinin yarım kalan işlemi kendi aracında kalır, karışmaz.
   async function switchToCustomer(customerId: string): Promise<void> {
     if (!apiOnline) {
       showToast("Müşteri seçimi için backend bağlantısı gerekli.");
@@ -525,7 +585,6 @@ async function start(): Promise<void> {
       showToast("Müşteri bilgisi alınamadı.");
       return;
     }
-    store.cart = [];
     hidden.clear();
     scene.setAllParts(false);
     syncPartButtons();
@@ -533,6 +592,9 @@ async function start(): Promise<void> {
       showToast("Araç verisi yüklenemedi.");
       return;
     }
+    // Sepet araca bağlıdır: yeni müşterinin kendi taslağı (varsa) yüklenir,
+    // öncekinin yarım kalan işlemi kendi aracında saklı kalır.
+    store.loadCartFor(demoVehicle.plate);
     scene.setBodyType(demoVehicle.bodyType);
     setActiveBody(demoVehicle.bodyType);
     renderMeta(demoVehicle.bodyType);

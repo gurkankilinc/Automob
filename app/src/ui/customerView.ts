@@ -1,5 +1,5 @@
 import type { RegionId } from "../scene/carWireframe";
-import { store, formatTL } from "../state/store";
+import { store, formatTL, formatDate } from "../state/store";
 import { REGION_LABELS } from "../data/catalog";
 import { renderThumbs } from "./photos";
 import { renderReminderList } from "./reminderList";
@@ -76,7 +76,7 @@ export function initCustomerView(opts: {
       const head = document.createElement("div");
       head.className = "tl-head";
       head.innerHTML =
-        `<span>${rec.date}</span><span>${rec.km.toLocaleString("tr-TR")} km</span>`;
+        `<span>${formatDate(rec.dateIso)}</span><span>${rec.km.toLocaleString("tr-TR")} km</span>`;
       wrap.appendChild(head);
       for (const item of rec.items) {
         const row = document.createElement("div");

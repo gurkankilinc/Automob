@@ -267,7 +267,12 @@
               <span class="card-title">İşlem Sepeti</span>
               <span class="badge" id="cart-count"></span>
             </div>
-            <div class="km-chip" id="cart-km"></div>
+            <div class="km-chip">
+              <label for="cart-km">Servis girişi</label>
+              <input id="cart-km" type="number" inputmode="numeric" min="0" step="100"
+                     autocomplete="off" aria-describedby="cart-km-unit" />
+              <span class="km-unit" id="cart-km-unit">km</span>
+            </div>
             <div id="cart-list"></div>
             <button class="ghost-btn" id="template-btn" type="button">
               <span class="gb-plus">＋</span> Şablon: 10.000 km bakımı

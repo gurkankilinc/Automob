@@ -5,11 +5,21 @@ import kotlinx.serialization.Serializable
 
 /** Frontend TS modelleriyle birebir eşleşen veri tipleri (kotlinx.serialization). */
 
+/**
+ * Kasa tipi — 3B model seçimini belirler.
+ * Frontend'deki src/scene/carWireframe.ts BodyType birliğiyle birebir eşleşmelidir;
+ * eksik bir değer aracın yanlış modelle yüklenmesine yol açar.
+ */
 @Serializable
 enum class BodyType {
     @SerialName("sedan") SEDAN,
     @SerialName("hatchback") HATCHBACK,
     @SerialName("suv") SUV,
+    @SerialName("minibus") MINIBUS,
+    @SerialName("kamyon") KAMYON,
+    @SerialName("otobus") OTOBUS,
+    @SerialName("tir") TIR,
+    @SerialName("motor") MOTOR,
 }
 
 @Serializable
@@ -27,8 +37,6 @@ data class Vehicle(
     val vin: String,
     val bodyType: BodyType,
     val km: Int,
-    val nextServiceKm: Int,
-    val lastServiceKm: Int,
     val owner: String,
     val phone: String,
     val customerId: String,
@@ -69,8 +77,7 @@ data class RecordItem(
 @Serializable
 data class ServiceRecord(
     val id: Int,
-    val date: String,
-    /** ISO 8601 (yyyy-MM-dd) — bakım hatırlatma hesaplarında kullanılır */
+    /** ISO 8601 (yyyy-MM-dd). Ekrandaki biçim istemcide üretilir. */
     val dateIso: String,
     val km: Int,
     val items: List<RecordItem>,
@@ -89,6 +96,16 @@ data class Suggestion(
 data class CreateRecordRequest(
     val km: Int,
     val items: List<RecordItem>,
+)
+
+/**
+ * Araç alan güncellemesi (kısmi). Verilmeyen alanlar değişmez.
+ * Servis girişinde okunan km ve kasa tipi düzeltmesi bu uçtan yazılır.
+ */
+@Serializable
+data class UpdateVehicleRequest(
+    val km: Int? = null,
+    val bodyType: BodyType? = null,
 )
 
 /** Bir bakım kalemi için hesaplanmış hatırlatma durumu. */
